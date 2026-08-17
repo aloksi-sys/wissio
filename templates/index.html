@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-5 mb-4 bg-white rounded-3 shadow-sm text-center">
+    <h1 class="display-5 fw-bold text-primary">Bem-vindo ao WISSIO 🇩🇪</h1>
+    <p class="lead mt-3">Sua plataforma inteligente para aprendizagem e prática da língua alemã.</p>
+    <hr class="my-4">
+
+    {% if session.get('usuario_id') %}
+        <div class="d-flex justify-content-center gap-3">
+            <a class="btn btn-primary btn-lg" href="/novo-texto" role="button">+ Inserir Novo Texto</a>
+            <a class="btn btn-outline-secondary btn-lg" href="/textos" role="button">Meus Textos</a>
+        </div>
+    {% else %}
+        <a class="btn btn-primary btn-lg me-2" href="/cadastro" role="button">Criar Conta</a>
+        <a class="btn btn-outline-primary btn-lg" href="/login" role="button">Entrar</a>
+    {% endif %}
+</div>
+{% endblock %}

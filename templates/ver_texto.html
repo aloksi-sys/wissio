@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ texto.titulo }}</h2>
+        <span class="badge bg-primary fs-6">Nível Estimado: {{ texto.nivel }}</span>
+    </div>
+
+    <!-- Abas de Navegação do Texto -->
+    <ul class="nav nav-tabs mb-4" id="textoTab" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active fw-bold" id="original-tab" data-bs-toggle="tab" data-bs-target="#original" type="button">Texto Original</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link fw-bold text-danger" id="ctest-tab" data-bs-toggle="tab" data-bs-target="#ctest" type="button">Exercício C-Test </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="textoTabContent">
+        <!-- Aba Texto Original -->
+        <div class="tab-pane fade show active p-4 bg-white rounded shadow-sm" id="original">
+            <p style="font-size: 1.15rem; line-height: 1.8; white-space: pre-line;">{{ texto.conteudo_original }}</p>
+        </div>
+
+        <!-- Aba C-Test -->
+        <div class="tab-pane fade p-4 bg-white rounded shadow-sm" id="ctest">
+            <h5 class="text-secondary mb-3">Complete os espaços em branco com a segunda metade das palavras:</h5>
+            <p style="font-size: 1.15rem; line-height: 2; white-space: pre-line;" class="font-monospace">{{ texto.ctest_conteudo }}</p>
+        </div>
+    </div>
+
+    <!-- Flashcards Gerados a partir deste Texto -->
+    <div class="mt-5">
+        <h4 class="mb-3">Vocabulary & Flashcards Extraídos</h4>
+        <div class="row">
+            {% for card in texto.flashcards %}
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm border-info">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">{{ card.palavra_alemao }}</h5>
+                        <p class="card-text text-muted small"><em>Exemplo: "{{ card.exemplo }}"</em></p>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-muted">Nenhum flashcard gerado automaticamente.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

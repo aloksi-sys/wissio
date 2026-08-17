@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm p-4">
+            <h3 class="card-title text-center mb-3">Inserir Novo Texto em Alemão</h3>
+            <p class="text-muted text-center">Cole o texto em alemão abaixo. O WISSIO vai classificar o nível, criar os flashcards automáticos e gerar o seu C-Test!</p>
+
+            <form action="/novo-texto" method="POST">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Título do Texto</label>
+                    <input type="text" name="titulo" class="form-control" placeholder="ex: Meine Reise nach Berlin" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Conteúdo em Alemão</label>
+                    <textarea name="conteudo" class="form-control" rows="8" placeholder="Cole o texto em alemão aqui..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 btn-lg">Processar e Gerar Estudo </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

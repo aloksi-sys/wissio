@@ -1,0 +1,257 @@
+<!-- NAO MEXA NESSA BOSTA EM HIPOTESE ALGUMA (Descobrir quando, como e o pq certas coisas funcioanm e outras nao)-->
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .game-card {
+        background: #ffffff;
+        border: 2px solid #e5e5e5;
+        border-bottom: 5px solid #e5e5e5;
+        border-radius: 16px;
+        transition: all 0.2s ease;
+    }
+    .game-option {
+        background: #ffffff;
+        border: 2px solid #e5e5e5;
+        border-bottom: 4px solid #e5e5e5;
+        border-radius: 12px;
+        padding: 14px 18px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        text-align: left;
+        width: 100%;
+        color: #4b4b4b;
+    }
+    .game-option:hover {
+        background: #f7f7f7;
+        border-color: #dddddd;
+    }
+    .game-option:active {
+        transform: translateY(2px);
+        border-bottom-width: 2px;
+    }
+    .game-option.correct {
+        background: #d7ffb8 !important;
+        border-color: #58cc02 !important;
+        border-bottom-color: #58cc02 !important;
+        color: #46a202 !important;
+    }
+    .game-option.incorrect {
+        background: #ffdfe0 !important;
+        border-color: #ff4b4b !important;
+        border-bottom-color: #ff4b4b !important;
+        color: #ea2b2b !important;
+    }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <!-- Topo da Sessão de Treino -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="fw-bold text-secondary" id="progresso-texto">
+                Card <span id="card-atual">1</span> de <span id="card-total">{{ flashcards|length }}</span>
+            </span>
+            <span class="badge bg-primary fs-6" id="xp-badge">⭐ <span id="qtd-xp">0</span> XP</span>
+        </div>
+
+        <!-- Barra de Progresso Simples -->
+        <div class="progress mb-4" style="height: 12px; border-radius: 10px; background: #e5e5e5;">
+            <div id="barra-progresso" class="progress-bar bg-success" role="progressbar" style="width: 0%; border-radius: 10px;"></div>
+        </div>
+
+        <!-- Arena do Desafio -->
+        <div id="arena-jogo">
+            {% if flashcards|length > 0 %}
+            <div class="game-card p-4 text-center mb-4">
+                <span class="badge bg-secondary mb-2" id="tipo-desafio-label">Prática de Vocabulário</span>
+                <h2 class="fw-bold text-dark mt-2" id="pergunta-principal">...</h2>
+                <p class="text-muted fs-5" id="subtexto-instrucao">Selecione a resposta correta:</p>
+
+                <!-- Frase de Exemplo / Contexto -->
+                <div class="p-3 bg-light rounded-3 my-3 border text-start fs-5" id="caixa-contexto">
+                    <em>"..."</em>
+                </div>
+
+                <!-- Opções de Resposta -->
+                <div class="d-flex flex-column gap-3 mt-4" id="container-opcoes">
+                    <!-- Geradas dinamicamente via JS -->
+                </div>
+            </div>
+            {% else %}
+            <div class="game-card p-5 text-center">
+                <h3>Nenhum Flashcard Disponível! 🎴</h3>
+                <p class="text-muted mb-4">Insira um texto em alemão para o WISSIO extrair o vocabulário e criar suas questões de treino.</p>
+                <a href="/novo-texto" class="btn btn-primary btn-lg">+ Inserir Novo Texto</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tela de Resumo da sessAo -->
+        <div id="tela-vitoria" class="game-card p-5 text-center d-none">
+            <h2 class="fw-bold text-dark">Sessão Concluída! 🎉</h2>
+            <p class="lead text-muted mt-2">Você revisou todo o vocabulário selecionado.</p>
+            
+            <div class="row my-4 justify-content-center">
+                <div class="col-6 col-md-4">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <small class="text-muted">Total de XP</small>
+                        <h3 class="text-primary fw-bold m-0" id="final-xp">+0</h3>
+                    </div>
+                </div>
+                <div class="col-6 col-md-4">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <small class="text-muted">Cards Revisados</small>
+                        <h3 class="text-success fw-bold m-0" id="final-cards">0</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-center gap-3">
+                <a href="/flashcards" class="btn btn-outline-primary btn-lg">Revisar Novamente </a>
+                <a href="/textos" class="btn btn-primary btn-lg">Voltar aos Textos </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dados dos Flashcards -->
+<script id="flashcards-data" type="application/json">
+[
+    {% for card in flashcards %}
+    {
+        "id": {{ card.id }},
+        "palavra": {{ card.palavra_alemao|tojson }},
+        "exemplo": {{ card.exemplo|tojson }},
+        "origem": {{ (card.texto.titulo if card.texto else "Texto")|tojson }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+]
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const rawData = document.getElementById('flashcards-data');
+        if (!rawData) return;
+
+        const flashcards = JSON.parse(rawData.textContent || '[]');
+        if (flashcards.length === 0) return;
+
+        let indiceAtual = 0;
+        let xp = 0;
+        let acertosPrimeiraTentativa = 0;
+        let errouNestaQuestao = false;
+        let bloqueado = false;
+
+        function carregarDesafio() {
+            if (indiceAtual >= flashcards.length) {
+                finalizarSessao();
+                return;
+            }
+
+            bloqueado = false;
+            errouNestaQuestao = false;
+
+            document.getElementById('card-atual').innerText = indiceAtual + 1;
+            document.getElementById('card-total').innerText = flashcards.length;
+            document.getElementById('qtd-xp').innerText = xp;
+
+            const progresso = Math.round((indiceAtual / flashcards.length) * 100);
+            document.getElementById('barra-progresso').style.width = `${progresso}%`;
+
+            const item = flashcards[indiceAtual];
+            const tipoDesafio = (indiceAtual % 2 === 0) ? 'MÚLTIPLA_ESCOLHA' : 'COMPLETAR_LACUNA';
+
+            if (tipoDesafio === 'MÚLTIPLA_ESCOLHA') {
+                document.getElementById('tipo-desafio-label').innerText = "Identificar Frase de Contexto";
+                document.getElementById('pergunta-principal').innerText = item.palavra;
+                document.getElementById('subtexto-instrucao').innerText = "Em qual frase esta palavra foi utilizada no seu texto?";
+                document.getElementById('caixa-contexto').innerHTML = `<small class="text-muted">Origem: ${item.origem}</small>`;
+
+                let opcoes = [item.exemplo];
+                let outrasOpcoes = flashcards.filter(f => f.id !== item.id).map(f => f.exemplo);
+                outrasOpcoes.sort(() => 0.5 - Math.random());
+                
+                opcoes = opcoes.concat(outrasOpcoes.slice(0, 2));
+                opcoes.sort(() => 0.5 - Math.random());
+
+                let container = document.getElementById('container-opcoes');
+                container.innerHTML = '';
+
+                opcoes.forEach(op => {
+                    let btn = document.createElement('button');
+                    btn.className = 'game-option';
+                    btn.innerText = `"${op}"`;
+                    btn.onclick = () => validarResposta(op === item.exemplo, btn);
+                    container.appendChild(btn);
+                });
+
+            } else {
+                let fraseComLacuna = item.exemplo.replace(new RegExp(item.palavra, 'gi'), '_______');
+                document.getElementById('tipo-desafio-label').innerText = "Preencher Lacuna";
+                document.getElementById('pergunta-principal').innerText = "Complete a Sentença";
+                document.getElementById('subtexto-instrucao').innerText = "Qual palavra em alemão encaixa corretamente na lacuna?";
+                document.getElementById('caixa-contexto').innerHTML = `<em>"${fraseComLacuna}"</em>`;
+
+                let opcoes = [item.palavra];
+                let outrasPalavras = flashcards.filter(f => f.id !== item.id).map(f => f.palavra);
+                outrasPalavras.sort(() => 0.5 - Math.random());
+
+                opcoes = opcoes.concat(outrasPalavras.slice(0, 2));
+                opcoes.sort(() => 0.5 - Math.random());
+
+                let container = document.getElementById('container-opcoes');
+                container.innerHTML = '';
+
+                opcoes.forEach(op => {
+                    let btn = document.createElement('button');
+                    btn.className = 'game-option text-center fw-bold fs-4';
+                    btn.innerText = op;
+                    btn.onclick = () => validarResposta(op === item.palavra, btn);
+                    container.appendChild(btn);
+                });
+            }
+        }
+
+        function validarResposta(correto, btn) {
+            if (bloqueado) return;
+
+            if (correto) {
+                bloqueado = true;
+                btn.classList.add('correct');
+
+                if (!errouNestaQuestao) {
+                    acertosPrimeiraTentativa++;
+                    xp += 10;
+                } else {
+                    xp += 5; // Meio ponto se acertou depois de tentar de novo
+                }
+
+                document.getElementById('qtd-xp').innerText = xp;
+
+                setTimeout(() => {
+                    indiceAtual++;
+                    carregarDesafio();
+                }, 800);
+            } else {
+                errouNestaQuestao = true;
+                btn.classList.add('incorrect');
+                // Permite tentar outra opção na mesma pergunta sem travar o jogo
+            }
+        }
+
+        function finalizarSessao() {
+            document.getElementById('arena-jogo').classList.add('d-none');
+            document.getElementById('tela-vitoria').classList.remove('d-none');
+
+            document.getElementById('final-xp').innerText = `+${xp}`;
+            document.getElementById('final-cards').innerText = flashcards.length;
+            document.getElementById('barra-progresso').style.width = '100%';
+        }
+
+        carregarDesafio();
+    });
+</script>
+{% endblock %}
