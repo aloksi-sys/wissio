@@ -1,257 +1,526 @@
-<!-- NAO MEXA NESSA BOSTA EM HIPOTESE ALGUMA (Descobrir quando, como e o pq certas coisas funcioanm e outras nao)-->
 {% extends "base.html" %}
 
 {% block content %}
 
 <style>
-    .game-card {
-        background: #ffffff;
-        border: 2px solid #e5e5e5;
-        border-bottom: 5px solid #e5e5e5;
-        border-radius: 16px;
-        transition: all 0.2s ease;
+    .cartao-3d {
+        perspective: 1600px;
+        min-height: 440px;
+        position: relative;
+        margin-bottom: 1.25rem;
     }
-    .game-option {
-        background: #ffffff;
-        border: 2px solid #e5e5e5;
-        border-bottom: 4px solid #e5e5e5;
-        border-radius: 12px;
-        padding: 14px 18px;
-        font-size: 1.1rem;
-        font-weight: 600;
+    .cartao {
+        position: absolute;
+        inset: 0;
+        transform-style: preserve-3d;
+        transition: transform .55s cubic-bezier(.35,.15,.25,1);
         cursor: pointer;
-        transition: all 0.15s ease;
-        text-align: left;
-        width: 100%;
-        color: #4b4b4b;
     }
-    .game-option:hover {
-        background: #f7f7f7;
-        border-color: #dddddd;
+    .cartao.virado { transform: rotateY(180deg); }
+    .face {
+        position: absolute;
+        inset: 0;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        border: 2px solid var(--bs-border-color);
+        border-bottom: 6px solid var(--bs-border-color);
+        border-radius: 18px;
+        background: var(--bs-card-bg);
+        box-shadow: 0 14px 34px rgba(0,0,0,.14);
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
     }
-    .game-option:active {
-        transform: translateY(2px);
-        border-bottom-width: 2px;
+    .verso { transform: rotateY(180deg); border-top: 6px solid var(--wissio-gold); }
+
+    .face-frente { align-items: center; justify-content: center; text-align: center; }
+    .palavra-alemao {
+        font-size: clamp(2.4rem, 8vw, 4rem);
+        font-weight: 800;
+        line-height: 1.1;
+        color: var(--bs-body-color);
+        word-break: break-word;
+        margin: .5rem 0;
     }
-    .game-option.correct {
-        background: #d7ffb8 !important;
-        border-color: #58cc02 !important;
-        border-bottom-color: #58cc02 !important;
-        color: #46a202 !important;
+    .tipo-tag {
+        display: inline-block;
+        padding: .25rem .75rem;
+        border-radius: 999px;
+        background: var(--wissio-gold);
+        color: var(--wissio-black);
+        font-weight: 700;
+        font-size: .8rem;
+        letter-spacing: .03em;
+        text-transform: uppercase;
     }
-    .game-option.incorrect {
-        background: #ffdfe0 !important;
-        border-color: #ff4b4b !important;
-        border-bottom-color: #ff4b4b !important;
-        color: #ea2b2b !important;
+    .origem-tag { font-size: .85rem; }
+    .dica-virar { animation: pulsar 1.8s ease-in-out infinite; }
+    @keyframes pulsar { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
+
+    .traducao-grande {
+        font-size: clamp(1.8rem, 6vw, 2.8rem);
+        font-weight: 800;
+        color: var(--wissio-gold);
+        text-align: center;
+        word-break: break-word;
     }
+    .exemplo-verso {
+        font-size: 1.15rem;
+        line-height: 1.7;
+        padding: 1rem 1.25rem;
+        border-left: 5px solid var(--wissio-gold);
+        background: var(--bs-tertiary-bg);
+        border-radius: 0 10px 10px 0;
+        margin-top: 1rem;
+    }
+    .exemplo-verso mark {
+        background: var(--wissio-gold);
+        color: var(--wissio-black);
+        padding: .05rem .25rem;
+        border-radius: 4px;
+        font-weight: 700;
+    }
+    .sem-traducao { font-size: 1.1rem; font-style: italic; color: var(--bs-secondary-color); }
+
+    .btn-fsrs {
+        border: 2px solid;
+        border-radius: 14px;
+        padding: .7rem .5rem;
+        font-weight: 700;
+        cursor: pointer;
+        background: var(--bs-card-bg);
+        color: var(--bs-body-color);
+        transition: transform .12s ease, background .12s ease;
+        line-height: 1.25;
+    }
+    .btn-fsrs:hover { transform: translateY(-3px); }
+    .btn-fsrs:active { transform: translateY(1px); }
+    .btn-fsrs small { display: block; font-weight: 600; opacity: .8; font-size: .72rem; }
+    .btn-fsrs .tecla {
+        display: inline-block; font-size: .68rem; opacity: .7;
+        border: 1px solid currentColor; border-radius: 5px;
+        padding: 0 .35rem; margin-top: .15rem;
+    }
+    .fsrs-again { border-color: var(--wissio-red); }
+    .fsrs-again:hover { background: rgba(255,0,0,.1); }
+    .fsrs-hard  { border-color: #ff9f1c; }
+    .fsrs-hard:hover  { background: rgba(255,159,28,.1); }
+    .fsrs-good  { border-color: #2ec4b6; }
+    .fsrs-good:hover  { background: rgba(46,196,182,.1); }
+    .fsrs-easy  { border-color: #58cc02; }
+    .fsrs-easy:hover  { background: rgba(88,204,2,.1); }
+
+    .painel-topo {
+        background: var(--bs-card-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 14px;
+        padding: 1rem 1.25rem;
+    }
+    .estado-cards { font-size: .8rem; }
 </style>
 
 <div class="row justify-content-center">
-    <div class="col-md-8">
-        <!-- Topo da Sessão de Treino -->
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <span class="fw-bold text-secondary" id="progresso-texto">
-                Card <span id="card-atual">1</span> de <span id="card-total">{{ flashcards|length }}</span>
-            </span>
-            <span class="badge bg-primary fs-6" id="xp-badge">⭐ <span id="qtd-xp">0</span> XP</span>
-        </div>
+    <div class="col-md-10">
 
-        <!-- Barra de Progresso Simples -->
-        <div class="progress mb-4" style="height: 12px; border-radius: 10px; background: #e5e5e5;">
-            <div id="barra-progresso" class="progress-bar bg-success" role="progressbar" style="width: 0%; border-radius: 10px;"></div>
-        </div>
-
-        <!-- Arena do Desafio -->
-        <div id="arena-jogo">
-            {% if flashcards|length > 0 %}
-            <div class="game-card p-4 text-center mb-4">
-                <span class="badge bg-secondary mb-2" id="tipo-desafio-label">Prática de Vocabulário</span>
-                <h2 class="fw-bold text-dark mt-2" id="pergunta-principal">...</h2>
-                <p class="text-muted fs-5" id="subtexto-instrucao">Selecione a resposta correta:</p>
-
-                <!-- Frase de Exemplo / Contexto -->
-                <div class="p-3 bg-light rounded-3 my-3 border text-start fs-5" id="caixa-contexto">
-                    <em>"..."</em>
+        {% if cards_data|length > 0 %}
+        <!-- ===== SESSÃO DE REVISÃO ===== -->
+        <div class="painel-topo mb-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <h4 class="fw-bold mb-0"><i class="bi bi-layers me-2 text-warning"></i>Revisão de Flashcards</h4>
+                    <span class="badge bg-secondary" id="modo-label">Modo Anki</span>
                 </div>
-
-                <!-- Opções de Resposta -->
-                <div class="d-flex flex-column gap-3 mt-4" id="container-opcoes">
-                    <!-- Geradas dinamicamente via JS -->
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <span class="badge bg-primary px-3 py-2">
+                        Cartão <span id="card-atual">1</span> de <span id="card-total">{{ cards_data|length }}</span>
+                    </span>
+                    <span class="badge px-3 py-2"
+                          style="background: var(--wissio-gold); color: var(--wissio-black); font-weight: 600;">
+                        <i class="bi bi-lightning-charge me-1"></i><span id="qtd-xp">0</span> XP
+                    </span>
+                    <button class="btn btn-sm btn-outline-secondary" id="btn-misturar">
+                        <i class="bi bi-shuffle me-1"></i>Misturar
+                    </button>
                 </div>
             </div>
-            {% else %}
-            <div class="game-card p-5 text-center">
-                <h3>Nenhum Flashcard Disponível! 🎴</h3>
-                <p class="text-muted mb-4">Insira um texto em alemão para o WISSIO extrair o vocabulário e criar suas questões de treino.</p>
-                <a href="/novo-texto" class="btn btn-primary btn-lg">+ Inserir Novo Texto</a>
+            <div class="progress" style="height: 10px; border-radius: 8px; background: var(--bs-border-color);">
+                <div id="barra-progresso" class="progress-bar progress-bar-wissio" role="progressbar"
+                     style="width: 0%; border-radius: 8px;"></div>
             </div>
-            {% endif %}
+            <div class="d-flex justify-content-between small text-muted mt-1 estado-cards">
+                <span><span id="n-novo">0</span> novos · <span id="n-revisao">0</span> revisões</span>
+                <span>Áperte <kbd>Espaço</kbd> para virar · <kbd>1</kbd>–<kbd>4</kbd> para avaliar</span>
+            </div>
         </div>
 
-        <!-- Tela de Resumo da sessAo -->
-        <div id="tela-vitoria" class="game-card p-5 text-center d-none">
-            <h2 class="fw-bold text-dark">Sessão Concluída! 🎉</h2>
-            <p class="lead text-muted mt-2">Você revisou todo o vocabulário selecionado.</p>
-            
-            <div class="row my-4 justify-content-center">
-                <div class="col-6 col-md-4">
-                    <div class="p-3 bg-light rounded-3 border">
-                        <small class="text-muted">Total de XP</small>
-                        <h3 class="text-primary fw-bold m-0" id="final-xp">+0</h3>
+        <!-- ===== CARTÃO (FRENTE / VERSO) ===== -->
+        <div class="cartao-3d" id="cartao-3d" role="button" tabindex="0"
+             aria-label="Cartão de memória. Clique para virar.">
+            <div class="cartao" id="cartao">
+                <!-- FRENTE -->
+                <div class="face face-frente">
+                    <div class="mb-2" id="frente-tipo">
+                        <span class="tipo-tag">Vocabulário</span>
+                    </div>
+                    <div class="palavra-alemao" id="frente-palavra">...</div>
+                    <div class="origem-tag text-muted mb-3" id="frente-origem"></div>
+                    <div class="dica-virar text-muted mt-auto">
+                        <i class="bi bi-arrow-repeat me-1"></i>Clique para ver a resposta
                     </div>
                 </div>
-                <div class="col-6 col-md-4">
-                    <div class="p-3 bg-light rounded-3 border">
-                        <small class="text-muted">Cards Revisados</small>
-                        <h3 class="text-success fw-bold m-0" id="final-cards">0</h3>
+
+                <!-- VERSO -->
+                <div class="face verso">
+                    <div class="text-center mb-2">
+                        <span class="tipo-tag" id="verso-tipo">Vocabulário</span>
+                    </div>
+                    <div id="verso-traducao-conteudo">
+                        <div class="traducao-grande" id="verso-traducao">...</div>
+                    </div>
+                    <div class="exemplo-verso" id="verso-exemplo">...</div>
+
+                    <div class="d-flex justify-content-between small text-muted mt-2 flex-wrap gap-2">
+                        <span id="verso-estado" class="badge bg-secondary">Novo</span>
+                        <span id="verso-origem-txt" class="align-self-center"></span>
+                    </div>
+
+                    <div class="mt-auto pt-3">
+                        <div class="text-muted small text-center mb-2">Como foi sua memória?</div>
+                        <div class="row g-2 justify-content-center">
+                            <div class="col-6 col-md-3">
+                                <button class="btn-fsrs fsrs-again w-100" data-facilidade="again">
+                                    <i class="bi bi-arrow-repeat"></i> De novo
+                                    <small>1 min</small><span class="tecla">1</span>
+                                </button>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <button class="btn-fsrs fsrs-hard w-100" data-facilidade="hard">
+                                    <i class="bi bi-emoji-frown"></i> Difícil
+                                    <small>6 h</small><span class="tecla">2</span>
+                                </button>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <button class="btn-fsrs fsrs-good w-100" data-facilidade="good">
+                                    <i class="bi bi-emoji-smile"></i> Bom
+                                    <small>1 dia</small><span class="tecla">3</span>
+                                </button>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <button class="btn-fsrs fsrs-easy w-100" data-facilidade="easy">
+                                    <i class="bi bi-emoji-laughing"></i> Fácil
+                                    <small>4 dias</small><span class="tecla">4</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="d-flex justify-content-center gap-3">
-                <a href="/flashcards" class="btn btn-outline-primary btn-lg">Revisar Novamente </a>
-                <a href="/textos" class="btn btn-primary btn-lg">Voltar aos Textos </a>
+        <div class="text-center mb-2" id="dica-fsrs" style="visibility: hidden;">
+            <span class="text-muted small"><i class="bi bi-hand-index-thumb me-1"></i>Virando o cartão...</span>
+        </div>
+
+        <!-- ===== FIM DA SESSÃO ===== -->
+        <div id="tela-vitoria" class="d-none">
+            <div class="card p-5 text-center" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
+                <div style="font-size: 4rem;">🎉</div>
+                <h2 class="fw-bold mt-2">Sessão Concluída!</h2>
+                <p class="lead text-muted">Você revisou todo o vocabulário selecionado.</p>
+
+                <div class="row my-4 justify-content-center g-3">
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 rounded-3 border" style="background: var(--bs-tertiary-bg);">
+                            <small class="text-muted">XP ganho</small>
+                            <h3 class="fw-bold m-0 text-warning" id="final-xp">+0</h3>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 rounded-3 border" style="background: var(--bs-tertiary-bg);">
+                            <small class="text-muted">Cartões</small>
+                            <h3 class="fw-bold m-0 text-primary" id="final-cartoes">0</h3>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 rounded-3 border" style="background: var(--bs-tertiary-bg);">
+                            <small class="text-muted">"De novo"</small>
+                            <h3 class="fw-bold m-0 text-danger" id="final-novos">0</h3>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 rounded-3 border" style="background: var(--bs-tertiary-bg);">
+                            <small class="text-muted">Memorizados</small>
+                            <h3 class="fw-bold m-0 text-success" id="final-bons">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                    <button class="btn btn-wissio-primary btn-lg" id="btn-revisar-novamente">
+                        <i class="bi bi-arrow-repeat me-1"></i>Revisar novamente
+                    </button>
+                    <a href="{{ url_for('painel_flashcards') }}" class="btn btn-outline-warning btn-lg">
+                        <i class="bi bi-grid-3x3-gap me-1"></i>Painel de Flashcards
+                    </a>
+                    <a href="{{ url_for('biblioteca') }}" class="btn btn-outline-secondary btn-lg">
+                        <i class="bi bi-book me-1"></i>Biblioteca
+                    </a>
+                </div>
             </div>
         </div>
+
+        {% else %}
+        <!-- ===== SEM CARTÕES ===== -->
+        <div class="card p-5 text-center" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
+            <div style="font-size: 3.5rem;">🎴</div>
+            <h3 class="fw-bold mt-3">Nenhum Flashcard Disponível</h3>
+            <p class="text-muted mb-4">
+                Insira um texto em alemão e o WISSIO extrai o vocabulário sozinho —
+                substantivos, verbos, adjetivos e advérbios viram cartões automáticos.
+            </p>
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+                <a href="{{ url_for('painel_flashcards') }}" class="btn btn-wissio-primary btn-lg">
+                    <i class="bi bi-grid-3x3-gap me-1"></i>Abrir o Painel de Flashcards
+                </a>
+                <a href="{{ url_for('novo_texto') }}" class="btn btn-outline-secondary btn-lg">
+                    <i class="bi bi-plus-circle me-1"></i>+ Inserir Novo Texto
+                </a>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <!-- Dados dos Flashcards -->
 <script id="flashcards-data" type="application/json">
 [
-    {% for card in flashcards %}
+    {% for item in cards_data %}
     {
-        "id": {{ card.id }},
-        "palavra": {{ card.palavra_alemao|tojson }},
-        "exemplo": {{ card.exemplo|tojson }},
-        "origem": {{ (card.texto.titulo if card.texto else "Texto")|tojson }}
+        "id": {{ item.flashcard.id }},
+        "palavra": {{ item.flashcard.palavra_alemao|tojson }},
+        "traducao": {{ item.flashcard.traducao|tojson }},
+        "tipo": {{ (item.flashcard.tipo or "Vocabulário")|tojson }},
+        "exemplo": {{ item.flashcard.exemplo|tojson }},
+        "origem": {{ (item.flashcard.texto.titulo if item.flashcard.texto else "Texto")|tojson }},
+        "estado": {{ item.progresso.state_label|tojson }},
+        "reps": {{ item.progresso.reps }},
+        "lapses": {{ item.progresso.lapses }},
+        "proxima_revisao": {{ (item.progresso.next_review.isoformat() if item.progresso.next_review else none)|tojson }}
     }{% if not loop.last %},{% endif %}
     {% endfor %}
 ]
 </script>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const rawData = document.getElementById('flashcards-data');
-        if (!rawData) return;
+document.addEventListener('DOMContentLoaded', function () {
+    const raw = document.getElementById('flashcards-data');
+    if (!raw) return;
 
-        const flashcards = JSON.parse(rawData.textContent || '[]');
-        if (flashcards.length === 0) return;
+    let baralho = JSON.parse(raw.textContent || '[]');
+    if (baralho.length === 0) return;
 
-        let indiceAtual = 0;
-        let xp = 0;
-        let acertosPrimeiraTentativa = 0;
-        let errouNestaQuestao = false;
-        let bloqueado = false;
+    const elCartao       = document.getElementById('cartao');
+    const dicaFsrs       = document.getElementById('dica-fsrs');
+    const barra          = document.getElementById('barra-progresso');
+    const btnEstudarNova = document.getElementById('btn-revisar-novamente');
 
-        function carregarDesafio() {
-            if (indiceAtual >= flashcards.length) {
-                finalizarSessao();
-                return;
+    let fila = [];          // ordem de exibição
+    let indice = 0;
+    let xp = 0;
+    let revistos = 0;
+    let contDeNovo = 0;
+    let contBons = 0;
+    let virado = false;
+    let bloqueado = false;  // aguardando resposta do servidor
+
+    function embaralhar() {
+        for (let i = baralho.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [baralho[i], baralho[j]] = [baralho[j], baralho[i]];
+        }
+        fila = [...baralho];
+        indice = 0;
+    }
+
+    function escaparHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function destacar(frase, palavra) {
+        const texto = escaparHtml(frase || '');
+        if (!frase || !palavra) return texto;
+        const esc = escaparHtml(palavra)
+            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        try {
+            return texto.replace(new RegExp(esc, 'gi'), m => `<mark>${m}</mark>`);
+        } catch (e) {
+            return texto;
+        }
+    }
+
+    function desvirar() {
+        elCartao.classList.remove('virado');
+        virado = false;
+        dicaFsrs.style.visibility = 'hidden';
+    }
+
+    function atualizarContadores() {
+        const total = fila.length;
+        document.getElementById('card-atual').textContent = Math.min(indice + 1, total);
+        document.getElementById('card-total').textContent = total;
+        document.getElementById('qtd-xp').textContent = xp;
+        barra.style.width = `${Math.round((indice / total) * 100)}%`;
+        document.getElementById('n-novo').textContent = fila.slice(indice).filter(c => c.estado === 'Novo').length;
+        document.getElementById('n-revisao').textContent = fila.slice(indice).filter(c => c.estado !== 'Novo').length;
+    }
+
+    function finalizar() {
+        document.getElementById('cartao-3d').classList.add('d-none');
+        dicaFsrs.classList.add('d-none');
+        const vitoria = document.getElementById('tela-vitoria');
+        vitoria.classList.remove('d-none');
+        document.getElementById('final-xp').textContent = '+' + xp;
+        document.getElementById('final-cartoes').textContent = revistos;
+        document.getElementById('final-novos').textContent = contDeNovo;
+        document.getElementById('final-bons').textContent = contBons;
+        barra.style.width = '100%';
+    }
+
+    function carregar() {
+        if (indice >= fila.length) { finalizar(); return; }
+
+        const item = fila[indice];
+        virado = false;
+        bloqueado = false;
+        elCartao.classList.remove('virado');
+        dicaFsrs.style.visibility = 'hidden';
+
+        // FRENTE
+        document.getElementById('frente-tipo').innerHTML =
+            `<span class="tipo-tag">${escaparHtml(item.tipo)}</span>`;
+        document.getElementById('frente-palavra').textContent = item.palavra;
+        document.getElementById('frente-origem').innerHTML =
+            `<i class="bi bi-bookmark me-1"></i>${escaparHtml(item.origem)}`;
+
+        // VERSO
+        document.getElementById('verso-tipo').textContent = item.tipo;
+        if (item.traducao) {
+            document.getElementById('verso-traducao-conteudo').innerHTML =
+                `<div class="traducao-grande" id="verso-traducao">${escaparHtml(item.traducao)}</div>`;
+        } else {
+            document.getElementById('verso-traducao-conteudo').innerHTML =
+                '<div class="sem-traducao text-center">Tradução não disponível — lembre-se pelo contexto.</div>';
+        }
+        document.getElementById('verso-exemplo').innerHTML =
+            item.exemplo ? `“${destacar(item.exemplo, item.palavra)}”`
+                         : '<em class="text-muted">Sem frase de exemplo para este cartão.</em>';
+
+        const badgeEstado = document.getElementById('verso-estado');
+        badgeEstado.textContent = item.estado;
+        badgeEstado.className = 'badge ' + (item.estado === 'Novo' ? 'bg-secondary' : 'bg-info text-dark');
+
+        let extra = `Revisões: ${item.reps}`;
+        if (item.lapses) extra += ` · Erros: ${item.lapses}`;
+        if (item.proxima_revisao) {
+            const d = new Date(item.proxima_revisao);
+            extra += ' · Próxima: ' + d.toLocaleDateString('pt-BR');
+        }
+        document.getElementById('verso-origem-txt').textContent = extra;
+
+        atualizarContadores();
+    }
+
+    function virar() {
+        if (virado) return;
+        elCartao.classList.add('virado');
+        virado = true;
+        dicaFsrs.style.visibility = 'visible';
+    }
+
+    function avaliar(facilidade) {
+        if (!virado || bloqueado) return;
+
+        const item = fila[indice];
+        const deltas = { again: 0, hard: 5, good: 15, easy: 30 };
+        xp += deltas[facilidade] || 0;
+        revistos++;
+        if (facilidade === 'again') contDeNovo++;
+        if (facilidade === 'good' || facilidade === 'easy') contBons++;
+
+        bloqueado = true;
+
+        // Atualização otimista: a sessão não trava se a rede falhar
+        fetch(`/flashcards/${item.id}/revisar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'csrf_token={{ csrf_token() }}&facilidade=' + encodeURIComponent(facilidade)
+        }).catch(() => {});
+
+        if (facilidade === 'again') {
+            item.estado = 'Aprendendo';
+            item.novamente = (item.novamente || 0) + 1;
+            // No estilo Anki: o cartão volta ao fim da fila, no máximo 2x por sessão
+            if (item.novamente <= 2) {
+                fila.push(item);
             }
-
-            bloqueado = false;
-            errouNestaQuestao = false;
-
-            document.getElementById('card-atual').innerText = indiceAtual + 1;
-            document.getElementById('card-total').innerText = flashcards.length;
-            document.getElementById('qtd-xp').innerText = xp;
-
-            const progresso = Math.round((indiceAtual / flashcards.length) * 100);
-            document.getElementById('barra-progresso').style.width = `${progresso}%`;
-
-            const item = flashcards[indiceAtual];
-            const tipoDesafio = (indiceAtual % 2 === 0) ? 'MÚLTIPLA_ESCOLHA' : 'COMPLETAR_LACUNA';
-
-            if (tipoDesafio === 'MÚLTIPLA_ESCOLHA') {
-                document.getElementById('tipo-desafio-label').innerText = "Identificar Frase de Contexto";
-                document.getElementById('pergunta-principal').innerText = item.palavra;
-                document.getElementById('subtexto-instrucao').innerText = "Em qual frase esta palavra foi utilizada no seu texto?";
-                document.getElementById('caixa-contexto').innerHTML = `<small class="text-muted">Origem: ${item.origem}</small>`;
-
-                let opcoes = [item.exemplo];
-                let outrasOpcoes = flashcards.filter(f => f.id !== item.id).map(f => f.exemplo);
-                outrasOpcoes.sort(() => 0.5 - Math.random());
-                
-                opcoes = opcoes.concat(outrasOpcoes.slice(0, 2));
-                opcoes.sort(() => 0.5 - Math.random());
-
-                let container = document.getElementById('container-opcoes');
-                container.innerHTML = '';
-
-                opcoes.forEach(op => {
-                    let btn = document.createElement('button');
-                    btn.className = 'game-option';
-                    btn.innerText = `"${op}"`;
-                    btn.onclick = () => validarResposta(op === item.exemplo, btn);
-                    container.appendChild(btn);
-                });
-
-            } else {
-                let fraseComLacuna = item.exemplo.replace(new RegExp(item.palavra, 'gi'), '_______');
-                document.getElementById('tipo-desafio-label').innerText = "Preencher Lacuna";
-                document.getElementById('pergunta-principal').innerText = "Complete a Sentença";
-                document.getElementById('subtexto-instrucao').innerText = "Qual palavra em alemão encaixa corretamente na lacuna?";
-                document.getElementById('caixa-contexto').innerHTML = `<em>"${fraseComLacuna}"</em>`;
-
-                let opcoes = [item.palavra];
-                let outrasPalavras = flashcards.filter(f => f.id !== item.id).map(f => f.palavra);
-                outrasPalavras.sort(() => 0.5 - Math.random());
-
-                opcoes = opcoes.concat(outrasPalavras.slice(0, 2));
-                opcoes.sort(() => 0.5 - Math.random());
-
-                let container = document.getElementById('container-opcoes');
-                container.innerHTML = '';
-
-                opcoes.forEach(op => {
-                    let btn = document.createElement('button');
-                    btn.className = 'game-option text-center fw-bold fs-4';
-                    btn.innerText = op;
-                    btn.onclick = () => validarResposta(op === item.palavra, btn);
-                    container.appendChild(btn);
-                });
-            }
+        } else {
+            item.estado = 'Revisão';
+            item.novamente = 0;
         }
 
-        function validarResposta(correto, btn) {
-            if (bloqueado) return;
+        indice++;
+        setTimeout(carregar, 160);
+    }
 
-            if (correto) {
-                bloqueado = true;
-                btn.classList.add('correct');
-
-                if (!errouNestaQuestao) {
-                    acertosPrimeiraTentativa++;
-                    xp += 10;
-                } else {
-                    xp += 5; // Meio ponto se acertou depois de tentar de novo
-                }
-
-                document.getElementById('qtd-xp').innerText = xp;
-
-                setTimeout(() => {
-                    indiceAtual++;
-                    carregarDesafio();
-                }, 800);
-            } else {
-                errouNestaQuestao = true;
-                btn.classList.add('incorrect');
-                // Permite tentar outra opção na mesma pergunta sem travar o jogo
-            }
-        }
-
-        function finalizarSessao() {
-            document.getElementById('arena-jogo').classList.add('d-none');
-            document.getElementById('tela-vitoria').classList.remove('d-none');
-
-            document.getElementById('final-xp').innerText = `+${xp}`;
-            document.getElementById('final-cards').innerText = flashcards.length;
-            document.getElementById('barra-progresso').style.width = '100%';
-        }
-
-        carregarDesafio();
+    // ---- eventos ----
+    elCartao.addEventListener('click', virar);
+    elCartao.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); virar(); }
     });
+
+    document.querySelectorAll('.btn-fsrs').forEach(b => {
+        b.addEventListener('click', e => {
+            e.stopPropagation();
+            avaliar(b.dataset.facilidade);
+        });
+    });
+
+    document.getElementById('btn-misturar').addEventListener('click', () => {
+        embaralhar();
+        carregar();
+    });
+
+    if (btnEstudarNova) {
+        btnEstudarNova.addEventListener('click', () => {
+            document.getElementById('tela-vitoria').classList.add('d-none');
+            document.getElementById('cartao-3d').classList.remove('d-none');
+            xp = revistos = contDeNovo = contBons = 0;
+            embaralhar();
+            carregar();
+        });
+    }
+
+    document.addEventListener('keydown', e => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (indice >= fila.length) return;
+
+        if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            virar();
+        } else if (['1', '2', '3', '4'].includes(e.key)) {
+            if (!virado) return;
+            const mapa = { '1': 'again', '2': 'hard', '3': 'good', '4': 'easy' };
+            avaliar(mapa[e.key]);
+        } else if (e.key.toLowerCase() === 'p') {
+            desvirar();
+        }
+    });
+
+    embaralhar();
+    carregar();
+});
 </script>
 {% endblock %}

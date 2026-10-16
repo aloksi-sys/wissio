@@ -7,16 +7,22 @@
             <h3 class="card-title text-center mb-3">Inserir Novo Texto em Alemão</h3>
             <p class="text-muted text-center">Cole o texto em alemão abaixo. O WISSIO vai classificar o nível, criar os flashcards automáticos e gerar o seu C-Test!</p>
 
-            <form action="/novo-texto" method="POST">
+            <form method="POST" action="{{ url_for('novo_texto') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                
                 <div class="mb-3">
                     <label class="form-label fw-bold">Título do Texto</label>
-                    <input type="text" name="titulo" class="form-control" placeholder="ex: Meine Reise nach Berlin" required>
+                    <input type="text" name="titulo" class="form-control" placeholder="ex: Meine Reise nach Berlin" required value="{{ request.form.titulo if request.form.titulo else '' }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Categoria (opcional)</label>
+                    <input type="text" name="categoria" class="form-control" placeholder="ex: Cultura, Viagem, Trabalho, Cotidiano" value="{{ request.form.categoria if request.form.categoria else '' }}">
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-bold">Conteúdo em Alemão</label>
-                    <textarea name="conteudo" class="form-control" rows="8" placeholder="Cole o texto em alemão aqui..." required></textarea>
+                    <textarea name="conteudo" class="form-control" rows="10" placeholder="Cole o texto em alemão aqui..." required>{{ request.form.conteudo if request.form.conteudo else '' }}</textarea>
                 </div>
-                <button type="submit" class="btn btn-primary w-100 btn-lg">Processar e Gerar Estudo </button>
+                <button type="submit" class="btn btn-wissio-primary w-100 btn-lg"><i class="bi bi-magic me-2"></i>Processar e Gerar Estudo</button>
             </form>
         </div>
     </div>

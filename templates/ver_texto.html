@@ -4,41 +4,85 @@
 <div class="container mb-5">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>{{ texto.titulo }}</h2>
-        <span class="badge bg-primary fs-6">Nível Estimado: {{ texto.nivel }}</span>
+        <span class="badge bg-primary fs-6">Nível: {{ texto.nivel.value }}</span>
     </div>
+    {% if texto.categoria %}
+    <span class="badge bg-secondary mb-3">{{ texto.categoria }}</span>
+    {% endif %}
 
     <!-- Abas de Navegação do Texto -->
     <ul class="nav nav-tabs mb-4" id="textoTab" role="tablist">
         <li class="nav-item">
-            <button class="nav-link active fw-bold" id="original-tab" data-bs-toggle="tab" data-bs-target="#original" type="button">Texto Original</button>
+            <button class="nav-link active fw-bold" id="original-tab" data-bs-toggle="tab" data-bs-target="#original" type="button">
+                <i class="bi bi-file-text me-1"></i>Texto Original
+            </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link fw-bold text-danger" id="ctest-tab" data-bs-toggle="tab" data-bs-target="#ctest" type="button">Exercício C-Test </button>
+            <button class="nav-link fw-bold text-danger" id="ctest-tab" data-bs-toggle="tab" data-bs-target="#ctest" type="button">
+                <i class="bi bi-pencil-square me-1"></i>C-Test
+            </button>
         </li>
     </ul>
 
     <div class="tab-content" id="textoTabContent">
         <!-- Aba Texto Original -->
-        <div class="tab-pane fade show active p-4 bg-white rounded shadow-sm" id="original">
+        <div class="tab-pane fade show active p-4 rounded shadow-sm" id="original" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
             <p style="font-size: 1.15rem; line-height: 1.8; white-space: pre-line;">{{ texto.conteudo_original }}</p>
         </div>
 
         <!-- Aba C-Test -->
-        <div class="tab-pane fade p-4 bg-white rounded shadow-sm" id="ctest">
+        <div class="tab-pane fade p-4 rounded shadow-sm" id="ctest" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
             <h5 class="text-secondary mb-3">Complete os espaços em branco com a segunda metade das palavras:</h5>
-            <p style="font-size: 1.15rem; line-height: 2; white-space: pre-line;" class="font-monospace">{{ texto.ctest_conteudo }}</p>
+            
+            <form method="POST" action="{{ url_for('submeter_ctest', id=texto.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                
+                <div style="font-size: 1.15rem; line-height: 2;" class="font-monospace">
+                    {% set ctest_words = (texto.ctest_conteudo or '').split() %}
+                    {% set gap_counter = 0 %}
+                    {% for word in ctest_words %}
+                        {% if '____' in word %}
+                            {% set gap_counter = gap_counter + 1 %}
+                            {% set prefix = word.split('____')[0] %}
+                            <span class="ctest-prefix">{{ prefix }}</span><span class="text-muted">…</span><input type="text" name="gap_{{ gap_counter }}" class="ctest-gap"
+                                   autocomplete="off"
+                                   style="border: none; border-bottom: 2px solid var(--wissio-gold-dark); background: transparent; width: auto; min-width: 80px; font-family: monospace; font-size: 1.15rem; color: var(--bs-body-color);"
+                                   placeholder="?">
+                        {% else %}
+                            {{ word }}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-wissio-danger btn-lg"><i class="bi bi-check-circle me-2"></i>Corrigir C-Test</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <!-- Flashcards Gerados a partir deste Texto -->
     <div class="mt-5">
-        <h4 class="mb-3">Vocabulary & Flashcards Extraídos</h4>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0"><i class="bi bi-card-text me-2"></i>Flashcards Extraídos</h4>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <a href="{{ url_for('flashcards_do_texto', id=texto.id) }}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-grid me-1"></i>Ver Todos
+                </a>
+                <a href="{{ url_for('painel_flashcards') }}" class="btn btn-outline-warning btn-sm">
+                    <i class="bi bi-layers me-1"></i>Painel de Flashcards
+                </a>
+            </div>
+        </div>
         <div class="row">
             {% for card in texto.flashcards %}
             <div class="col-md-4 mb-3">
-                <div class="card shadow-sm border-info">
+                <div class="card shadow-sm border-info h-100">
                     <div class="card-body">
                         <h5 class="card-title text-primary">{{ card.palavra_alemao }}</h5>
+                        {% if card.traducao %}
+                        <p class="card-text"><strong>Tradução:</strong> {{ card.traducao }}</p>
+                        {% endif %}
                         <p class="card-text text-muted small"><em>Exemplo: "{{ card.exemplo }}"</em></p>
                     </div>
                 </div>
@@ -49,4 +93,8 @@
         </div>
     </div>
 </div>
+
+<style>
+.ctest-gap:focus { outline: none; border-bottom-color: #0a58ca; }
+</style>
 {% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mb-5">
+    <!-- Header com busca e filtros -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+        <div>
+            <h2 class="mb-1">Biblioteca de Textos</h2>
+            <p class="text-muted mb-0">Gerencie e filtre seus textos de estudo</p>
+        </div>
+        <a href="{{ url_for('novo_texto') }}" class="btn btn-success fw-bold">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24" class="me-2"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            + Inserir Novo Texto
+        </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('biblioteca') }}" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label visually-hidden">Buscar</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span>
+                        <input type="text" name="busca" class="form-control" placeholder="Buscar por título ou conteúdo..." value="{{ busca }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label visually-hidden">Nível CEFR</label>
+                    <select name="nivel" class="form-select">
+                        <option value="">Todos os níveis</option>
+                        {% for nivel in niveis %}
+                        <option value="{{ nivel.value }}" {% if nivel.value == filtro_nivel %}selected{% endif %}>
+                            {{ nivel.value }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label visually-hidden">Categoria</label>
+                    <select name="categoria" class="form-select">
+                        <option value="">Todas as categorias</option>
+                        {% for cat in categorias %}
+                        <option value="{{ cat }}" {% if cat == filtro_categoria %}selected{% endif %}>
+                            {{ cat }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-grid">
+                    <a href="{{ url_for('biblioteca') }}" class="btn btn-outline-secondary">Limpar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Grid de textos -->
+    {% if textos %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for texto in textos %}
+        <div class="col">
+            <div class="card text-card h-100 shadow-sm">
+                {% if texto.imagem_url %}
+                <img src="{{ texto.imagem_url }}" class="card-img-top" alt="{{ texto.titulo }}" style="height: 160px; object-fit: cover;">
+                {% else %}
+                <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 160px;">
+                    <svg width="48" height="48" fill="currentColor" class="text-muted" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10-4H6c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 12H6V4h8v10z"/></svg>
+                </div>
+                {% endif %}
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title text-primary m-0">{{ texto.titulo }}</h5>
+                        <span class="badge bg-info text-dark">{{ texto.nivel.value }}</span>
+                    </div>
+                    {% if texto.categoria %}
+                    <span class="badge bg-secondary mb-2">{{ texto.categoria }}</span>
+                    {% endif %}
+                    <p class="card-text text-muted small flex-grow-1" style="max-height: 60px; overflow: hidden;">{{ texto.conteudo_original[:150] }}...</p>
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                        <small class="text-muted">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" class="me-1"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                            {{ texto.tempo_estimado_min }} min
+                        </small>
+                        <small class="text-muted">{{ texto.created_at.strftime('%d/%m/%Y') }}</small>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 d-flex gap-2">
+                    <a href="{{ url_for('ver_texto', id=texto.id) }}" class="btn btn-outline-primary flex-fill">Estudar</a>
+                    <a href="{{ url_for('flashcards_do_texto', id=texto.id) }}" class="btn btn-outline-warning flex-fill" title="Ver flashcards deste texto">
+                        <i class="bi bi-card-text"></i> Cards
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <div class="bg-light rounded-3 p-5">
+            <svg width="80" height="80" fill="currentColor" class="text-muted mb-3" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10-4H6c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 12H6V4h8v10z"/></svg>
+            <h4 class="text-muted">Nenhum texto encontrado</h4>
+            <p class="text-muted">Tente ajustar os filtros ou insira um novo texto.</p>
+            <a href="{{ url_for('novo_texto') }}" class="btn btn-primary mt-2">+ Inserir Primeiro Texto</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.text-card { border: none; transition: all 0.2s; }
+.text-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.1) !important; }
+.text-card .card-img-top { border-radius: 0.5rem 0.5rem 0 0; }
+.text-card:not(:has(.card-img-top > img)) .card-img-top { border-radius: 0.5rem 0.5rem 0 0; }
+</style>
+{% endblock %}

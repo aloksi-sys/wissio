@@ -1,0 +1,30 @@
+# Configuração de Deploy no Render (gratuito)
+# 
+# IMPORTANTE: O PostgreSQL do Render Free expira em 90 dias.
+# Para custo zero permanente, use Supabase (https://supabase.com) para o banco.
+#
+# Passos:
+# 1. Crie conta no Supabase -> New Project -> copie a Connection String (URI)
+# 2. No Render, crie Web Service conectado a este repo
+# 3. Configure as Environment Variables abaixo
+# 4. Deploy!
+
+services:
+  - type: web
+    name: wissio
+    runtime: python
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      # Configure DATABASE_URL manualmente no painel do Render com a URI do Supabase
+      # Exemplo: postgresql://postgres:[SENHA]@db.[PROJECT].supabase.co:5432/postgres
+      - key: DATABASE_URL
+        sync: false
+    healthCheckPath: /
+    autoDeploy: true

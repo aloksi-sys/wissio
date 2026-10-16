@@ -1,19 +1,94 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="p-5 mb-4 bg-white rounded-3 shadow-sm text-center">
-    <h1 class="display-5 fw-bold text-primary">Bem-vindo ao WISSIO 🇩🇪</h1>
-    <p class="lead mt-3">Sua plataforma inteligente para aprendizagem e prática da língua alemã.</p>
-    <hr class="my-4">
+{% if usuario and not usuario.email_verificado %}
+<div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2" role="alert">
+    <div class="d-flex align-items-center">
+        <i class="bi bi-envelope-exclamation fs-4 me-2"></i>
+        <div>
+            <strong>Confirme seu e-mail</strong>
+            <div class="small">Verifique o endereço <em>{{ usuario.email }}</em> para desbloquear todos os recursos.</div>
+        </div>
+    </div>
+    <a href="{{ url_for('verificar_email') }}" class="btn btn-sm btn-wissio-primary">Verificar agora</a>
+</div>
+{% endif %}
 
-    {% if session.get('usuario_id') %}
-        <div class="d-flex justify-content-center gap-3">
-            <a class="btn btn-primary btn-lg" href="/novo-texto" role="button">+ Inserir Novo Texto</a>
-            <a class="btn btn-outline-secondary btn-lg" href="/textos" role="button">Meus Textos</a>
+<div class="p-5 mb-4 rounded-3 shadow-sm text-center animate-fade-in" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
+    <div class="mb-3" style="font-size: 3rem;">🇩🇪</div>
+    <h1 class="display-5 fw-bold" style="color: var(--wissio-black);">Bem-vindo ao WISSIO</h1>
+    <p class="lead mt-3 text-muted">Sua plataforma inteligente para aprendizagem e prática da língua alemã.</p>
+    <hr class="my-4" style="border-color: var(--wissio-gold); max-width: 200px; margin: 0 auto;">
+
+    {% if usuario %}
+        <div class="d-flex justify-content-center gap-3 flex-wrap mt-4">
+            <a class="btn btn-wissio-primary btn-lg" href="{{ url_for('dashboard') }}" role="button"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+            <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('novo_texto') }}" role="button"><i class="bi bi-plus-circle me-2"></i>Novo Texto</a>
+            <a class="btn btn-outline-primary btn-lg" href="{{ url_for('biblioteca') }}" role="button"><i class="bi bi-book me-2"></i>Biblioteca</a>
+            <a class="btn btn-outline-success btn-lg" href="{{ url_for('flashcards') }}" role="button"><i class="bi bi-card-text me-2"></i>Flashcards</a>
+            <a class="btn btn-outline-warning btn-lg" href="{{ url_for('dicas_alemao') }}" role="button"><i class="bi bi-lightbulb me-2"></i>Dicas</a>
         </div>
     {% else %}
-        <a class="btn btn-primary btn-lg me-2" href="/cadastro" role="button">Criar Conta</a>
-        <a class="btn btn-outline-primary btn-lg" href="/login" role="button">Entrar</a>
+        <div class="d-flex justify-content-center gap-3 flex-wrap mt-4">
+            <a class="btn btn-wissio-primary btn-lg" href="{{ url_for('cadastro') }}" role="button"><i class="bi bi-person-plus me-2"></i>Criar Conta Grátis</a>
+            <a class="btn btn-outline-primary btn-lg" href="{{ url_for('login') }}" role="button"><i class="bi bi-box-arrow-in-right me-2"></i>Entrar</a>
+        </div>
     {% endif %}
 </div>
+
+{% if not usuario %}
+<!-- Features -->
+<div class="row g-4 mb-5">
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm h-100" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color)!important;">
+            <div class="card-body text-center p-4">
+                <div class="bg-warning text-dark rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px;">
+                    <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10-4H6c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 12H6V4h8v10z"/></svg>
+                </div>
+                <h5 class="fw-bold">Textos Reais</h5>
+                <p class="text-muted">Insira textos em alemão e o WISSIO classifica o nível, extrai vocabulário e gera exercícios automaticamente.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color)!important;">
+            <div class="card-body text-center p-4">
+                <div class="bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px;">
+                    <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+                </div>
+                <h5 class="fw-bold">Flashcards Inteligentes</h5>
+                <p class="text-muted">Memorização ativa com algoritmo FSRS (repetição espaçada) para retenção de longo prazo.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color)!important;">
+            <div class="card-body text-center p-4">
+                <div class="bg-danger text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px;">
+                    <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                </div>
+                <h5 class="fw-bold">Exercícios C-Test</h5>
+                <p class="text-muted">Complete lacunas em textos reais para praticar compreensão e dedução vocabular.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- German Flag Colors Showcase -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color)!important;">
+            <div class="card-body text-center py-4">
+                <h5 class="fw-bold mb-3">Cores da Bandeira Alemã</h5>
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                    <div class="color-badge" style="background: #000000; color: white; min-width: 100px;">Preto</div>
+                    <div class="color-badge" style="background: #FF0000; color: white; min-width: 100px;">Vermelho</div>
+                    <div class="color-badge" style="background: #FFCC00; color: #000; min-width: 100px;">Ouro</div>
+                </div>
+                <p class="text-muted small mt-2 mb-0">A identidade visual do WISSIO usa as cores da bandeira da Alemanha: <strong>Preto, Vermelho e Ouro</strong></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

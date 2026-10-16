@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .painel-texto { border: 1px solid var(--bs-border-color); border-radius: 14px; }
+    .painel-texto .painel-head {
+        background: var(--bs-tertiary-bg);
+        border-bottom: 1px solid var(--bs-border-color);
+        padding: 1rem 1.25rem;
+    }
+    .card-chip {
+        display: flex;
+        align-items: flex-start;
+        gap: .75rem;
+        padding: .75rem;
+        border: 2px solid var(--bs-border-color);
+        border-radius: 10px;
+        background: var(--bs-card-bg);
+        transition: border-color .15s, background .15s;
+        cursor: pointer;
+        height: 100%;
+    }
+    .card-chip:hover { border-color: var(--wissio-gold); }
+    .card-chip.selecionado {
+        border-color: var(--wissio-gold);
+        background: rgba(255, 204, 0, .07);
+    }
+    .card-chip .form-check-input { margin-top: .3rem; cursor: pointer; }
+    .card-chip .palavra { font-weight: 700; font-size: 1.05rem; color: var(--bs-body-color); }
+    .card-chip .traducao { color: var(--bs-body-color); }
+    .card-chip.sem-traducao .traducao { color: var(--bs-secondary-color); font-style: italic; }
+    .tipo-badge {
+        font-size: .7rem; font-weight: 600; padding: .15rem .45rem;
+        background: var(--wissio-gold); color: var(--wissio-black); border-radius: 999px;
+    }
+    .check-mestre { width: 1.25rem; height: 1.25rem; cursor: pointer; }
+    .barra-selecao {
+        position: sticky; bottom: 0; z-index: 1020;
+        background: var(--bs-card-bg);
+        border-top: 3px solid var(--wissio-gold);
+        box-shadow: 0 -6px 20px rgba(0,0,0,.15);
+        padding: .85rem 1.25rem;
+        border-radius: 14px 14px 0 0;
+    }
+    .estado-badge { font-size: .7rem; font-weight: 600; padding: .15rem .45rem; border-radius: 999px; }
+</style>
+
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+    <div>
+        <h2 class="mb-1 fw-bold"><i class="bi bi-grid-3x3-gap me-2 text-warning"></i>Painel de Flashcards</h2>
+        <p class="text-muted mb-0">Marque os cartões de cada texto que você quer revisar agora.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <span class="badge bg-primary fs-6 px-3 py-2" title="Total de cartões">
+            <i class="bi bi-card-checklist me-1"></i>{{ total_cards }} cartões
+        </span>
+        <span class="badge fs-6 px-3 py-2"
+              style="background: var(--wissio-gold); color: var(--wissio-black);"
+              title="Cartões em atraso ou nunca estudados">
+            <i class="bi bi-alarm me-1"></i>{{ total_pendentes }} pendentes
+        </span>
+    </div>
+</div>
+
+{% if painel %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <div class="form-check ms-1">
+        <input class="form-check-input check-mestre" type="checkbox" id="selecionar-tudo" checked>
+        <label class="form-check-label fw-semibold" for="selecionar-tudo">Selecionar todos os cartões</label>
+    </div>
+    <div class="btn-group btn-group-sm">
+        <button class="btn btn-outline-warning" id="btn-pendentes">
+            <i class="bi bi-alarm me-1"></i>Só os pendentes
+        </button>
+        <button class="btn btn-outline-secondary" id="btn-nenhum">Limpar</button>
+    </div>
+</div>
+
+{% for item in painel %}
+<div class="card painel-texto mb-4">
+    <div class="painel-head">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="badge bg-info text-dark">{{ item.texto.nivel.value }}</span>
+                <h5 class="mb-0 fw-bold">
+                    <a href="{{ url_for('ver_texto', id=item.texto.id) }}" class="text-decoration-none text-reset">
+                        {{ item.texto.titulo }}
+                    </a>
+                </h5>
+                {% if item.texto.categoria %}
+                <span class="badge bg-secondary">{{ item.texto.categoria }}</span>
+                {% endif %}
+            </div>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <span class="small text-muted">
+                    {{ item.cards|length }} cartão{{ 'ões' if item.cards|length != 1 else '' }}
+                    · <strong class="text-warning">{{ item.pendentes }}</strong> pendente{{ 's' if item.pendentes != 1 else '' }}
+                </span>
+                {% if item.cards %}
+                <div class="form-check">
+                    <input class="form-check-input check-texto" type="checkbox" data-texto="{{ item.texto.id }}"
+                           id="texto-{{ item.texto.id }}" checked>
+                    <label class="form-check-label small fw-semibold" for="texto-{{ item.texto.id }}">
+                        Todos deste texto
+                    </label>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body p-3">
+        {% if item.cards %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-2">
+            {% for card in item.cards %}
+            {% set prog = item.progressos.get(card.id) %}
+            {% set nao_estudado = not prog or prog.next_review is none %}
+            {% set vencido = prog and prog.pendente and not nao_estudado %}
+            <div class="col">
+                <div class="card-chip {% if nao_estudado or vencido %}pendente{% endif %}"
+                     data-texto="{{ item.texto.id }}"
+                     data-pendente="{{ '1' if (nao_estudado or vencido) else '0' }}"
+                     data-id="{{ card.id }}">
+                    <input class="form-check-input flashcard-check" type="checkbox"
+                           value="{{ card.id }}" checked>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                            <span class="palavra">{{ card.palavra_alemao }}</span>
+                            {% if card.tipo %}
+                            <span class="tipo-badge">{{ card.tipo }}</span>
+                            {% endif %}
+                        </div>
+                        {% if card.traducao %}
+                        <div class="traducao">{{ card.traducao }}</div>
+                        {% else %}
+                        <div class="traducao">sem tradução</div>
+                        {% endif %}
+                        <div class="d-flex align-items-center gap-1 mt-2 flex-wrap">
+                            {% if prog %}
+                            <span class="estado-badge" style="background: var(--bs-secondary-bg); color: var(--bs-body-color);">
+                                {{ prog.state_label }}
+                            </span>
+                            <span class="estado-badge" style="background: var(--bs-secondary-bg); color: var(--bs-body-color);">
+                                {{ prog.reps }}×
+                            </span>
+                            {% else %}
+                            <span class="estado-badge" style="background: var(--bs-secondary-bg); color: var(--bs-body-color);">
+                                Novo
+                            </span>
+                            {% endif %}
+                            {% if nao_estudado %}
+                            <span class="estado-badge" style="background: var(--wissio-gold); color: var(--wissio-black);">
+                                <i class="bi bi-stars"></i> novo
+                            </span>
+                            {% elif vencido %}
+                            <span class="estado-badge" style="background: var(--wissio-red); color: #fff;">
+                                <i class="bi bi-alarm"></i> hoje
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-3">
+            <p class="text-muted mb-2">Este texto ainda não tem flashcards.</p>
+            <form method="POST" action="{{ url_for('gerar_flashcards_do_texto', id=item.texto.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button class="btn btn-sm btn-wissio-primary">
+                    <i class="bi bi-magic me-1"></i>Gerar flashcards deste texto
+                </button>
+            </form>
+            <a href="{{ url_for('novo_texto') }}" class="btn btn-sm btn-outline-secondary ms-2">
+                <i class="bi bi-plus-circle me-1"></i>Inserir outro texto
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+<!-- Barra fixa de seleção -->
+<div class="barra-selecao d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <strong id="contagem-selecionados">0</strong>
+        <span class="text-muted small" id="contagem-detalhe">cartão(ões) selecionado(s)</span>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('flashcards') }}" class="btn btn-outline-secondary" id="btn-todos">
+            <i class="bi bi-collection me-1"></i>Revisar todos
+        </a>
+        <a href="{{ url_for('flashcards', pendentes=1) }}" class="btn btn-outline-warning" id="btn-pendentes-barra">
+            <i class="bi bi-alarm me-1"></i>Revisar pendentes
+        </a>
+        <button class="btn btn-wissio-primary btn-lg" id="btn-estudar" disabled>
+            <i class="bi bi-play-circle me-2"></i>Estudar selecionados
+            <span class="badge bg-dark ms-1" id="badge-estudar">0</span>
+        </button>
+    </div>
+</div>
+
+{% else %}
+<!-- Nenhum texto ainda -->
+<div class="card p-5 text-center" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
+    <div style="font-size: 3.5rem;">🗂️</div>
+    <h3 class="fw-bold mt-3">Nenhum texto com flashcards ainda</h3>
+    <p class="text-muted mb-4">
+        Insira um texto em alemão: o WISSIO extrai automaticamente os substantivos, verbos,
+        adjetivos e advérbios e monta cartões no estilo Anki.
+    </p>
+    <div class="d-flex justify-content-center gap-2 flex-wrap">
+        <a href="{{ url_for('novo_texto') }}" class="btn btn-wissio-primary btn-lg">
+            <i class="bi bi-plus-circle me-1"></i>+ Inserir Novo Texto
+        </a>
+        <a href="{{ url_for('biblioteca') }}" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-book me-1"></i>Ir para a Biblioteca
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const checks      = [...document.querySelectorAll('.flashcard-check')];
+    const checkTextos = [...document.querySelectorAll('.check-texto')];
+    const mestre      = document.getElementById('selecionar-tudo');
+    const chips       = [...document.querySelectorAll('.card-chip')];
+    const btnEstudar  = document.getElementById('btn-estudar');
+    const badge       = document.getElementById('badge-estudar');
+    const contagem    = document.getElementById('contagem-selecionados');
+    const detalhe     = document.getElementById('contagem-detalhe');
+
+    // Sem nada selecionável (nenhum texto ainda) — nada a fazer
+    if (!mestre || !btnEstudar || checks.length === 0) return;
+
+    function idsSelecionados() {
+        return checks.filter(c => c.checked).map(c => c.value);
+    }
+
+    function atualizar() {
+        const sel = idsSelecionados();
+        contagem.textContent = sel.length;
+        btnEstudar.disabled = sel.length === 0;
+        btnEstudar.classList.toggle('disabled', sel.length === 0);
+        badge.textContent = sel.length;
+
+        const pend = checks.filter(c => c.checked && c.closest('.card-chip').dataset.pendente === '1').length;
+        detalhe.textContent = sel.length === 0
+            ? 'nenhum cartão selecionado'
+            : `cartão(ões) selecionado(s) · ${pend} pendente(s)`;
+
+        // sincroniza checkbox por texto e o mestre
+        checkTextos.forEach(ct => {
+            const doTexto = checks.filter(c => c.dataset.texto === ct.dataset.texto);
+            ct.checked = doTexto.length > 0 && doTexto.every(c => c.checked);
+        });
+        mestre.checked = checks.length > 0 && checks.every(c => c.checked);
+
+        chips.forEach(ch => ch.classList.toggle('selecionado',
+            ch.querySelector('.flashcard-check').checked));
+    }
+
+    checks.forEach(c => c.addEventListener('change', atualizar));
+    checkTextos.forEach(ct => ct.addEventListener('change', () => {
+        checks.filter(c => c.dataset.texto === ct.dataset.texto)
+              .forEach(c => { c.checked = ct.checked; });
+        atualizar();
+    }));
+    mestre.addEventListener('change', () => {
+        checks.forEach(c => { c.checked = mestre.checked; });
+        atualizar();
+    });
+    chips.forEach(ch => ch.addEventListener('click', e => {
+        if (e.target.classList.contains('flashcard-check')) return;
+        const cb = ch.querySelector('.flashcard-check');
+        cb.checked = !cb.checked;
+        atualizar();
+    }));
+
+    document.getElementById('btn-nenhum').addEventListener('click', () => {
+        checks.forEach(c => { c.checked = false; });
+        atualizar();
+    });
+
+    document.getElementById('btn-pendentes').addEventListener('click', () => {
+        checks.forEach(c => {
+            c.checked = c.closest('.card-chip').dataset.pendente === '1';
+        });
+        atualizar();
+    });
+
+    btnEstudar.addEventListener('click', () => {
+        const sel = idsSelecionados();
+        if (sel.length === 0) return;
+        window.location.href = `{{ url_for('flashcards') }}?ids=${sel.join(',')}`;
+    });
+
+    atualizar();
+});
+</script>
+{% endblock %}

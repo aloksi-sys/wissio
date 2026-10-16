@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm p-4">
+            <div class="text-center mb-4">
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                    <svg width="40" height="40" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                </div>
+                <h2 class="fw-bold mt-3">Qual seu objetivo com o alemão?</h2>
+                <p class="text-muted">Escolha uma opção para personalizarmos seu conteúdo</p>
+            </div>
+
+            <form method="POST" action="{{ url_for('onboarding_objetivos') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                
+                <div class="row g-3">
+                    {% for obj in objetivos %}
+                    <div class="col-md-6">
+                        <label class="objective-card h-100 d-flex flex-column align-items-center justify-content-center p-4 border rounded-3 cursor-pointer {% if obj.value == 'viajar' %}border-primary bg-light{% endif %}" 
+                               style="transition: all 0.2s;">
+                            <input type="radio" name="objetivo" value="{{ obj.value }}" class="d-none" required>
+                            <div class="objective-icon mb-2">
+                                {% if obj.value == 'viajar' %}✈️
+                                {% elif obj.value == 'estudos' %}🎓
+                                {% elif obj.value == 'trabalho' %}💼
+                                {% elif obj.value == 'cultura' %}🏛️
+                                {% else %}⭐{% endif %}
+                            </div>
+                            <span class="fw-semibold text-center">{{ obj.value.capitalize() }}</span>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">Continuar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.objective-card {
+    cursor: pointer;
+    border: 2px solid #e0e0e0;
+}
+.objective-card:hover {
+    border-color: #0d6efd;
+    background-color: #f8f9fa;
+}
+.objective-card input:checked + .objective-icon + span {
+    color: #0d6efd;
+}
+.objective-card:has(input:checked) {
+    border-color: #0d6efd;
+    background-color: #eef2ff;
+}
+.objective-icon {
+    font-size: 2.5rem;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mb-5">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Dashboard</h2>
+            <p class="text-muted mb-0">Olá, <strong>{{ usuario.nome }}</strong>! Acompanhe seu progresso.</p>
+        </div>
+        <span class="badge bg-primary fs-6 px-3 py-2">Nível {{ usuario.nivel_atual.value if usuario.nivel_atual else 'A1' }}</span>
+    </div>
+
+    <!-- Cards de Estatísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-primary text-white mx-auto mb-2">
+                        <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10-4H6c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 12H6V4h8v10z"/></svg>
+                    </div>
+                    <h3 class="fw-bold mb-0">{{ total_textos }}</h3>
+                    <small class="text-muted">Textos Inseridos</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-success text-white mx-auto mb-2">
+                        <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10-4H6c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 12H6V4h8v10z"/></svg>
+                    </div>
+                    <h3 class="fw-bold mb-0">{{ total_flashcards }}</h3>
+                    <small class="text-muted">Flashcards</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-warning text-white mx-auto mb-2">
+                        <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+                    </div>
+                    <h3 class="fw-bold mb-0">{{ streak }}</h3>
+                    <small class="text-muted">Dias Consecutivos</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-info text-white mx-auto mb-2">
+                        <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                    </div>
+                    <h3 class="fw-bold mb-0">{{ xp_total }}</h3>
+                    <small class="text-muted">XP Total</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico semanal + Próximas revisões -->
+    <div class="row g-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <h5 class="fw-bold mb-0">Atividade dos Últimos 7 Dias</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="weeklyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Próximas Revisões</h5>
+                    <span class="badge bg-success">{{ proximas_revisoes|length }} pendentes</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if proximas_revisoes %}
+                    <div class="list-group list-group-flush">
+                        {% for prog in proximas_revisoes %}
+                        <div class="list-group-item px-3 py-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ prog.flashcard.palavra_alemao }}</strong>
+                                    {% if prog.flashcard.traducao %}
+                                    <span class="text-muted ms-2">{{ prog.flashcard.traducao }}</span>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted">
+                                    {% if prog.next_review %}
+                                    {{ prog.next_review.strftime('%d/%m %H:%M') }}
+                                    {% else %}Agora{% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="p-3">
+                        <a href="{{ url_for('flashcards') }}" class="btn btn-outline-primary w-100">Ir para Flashcards</a>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <p class="mb-0">Nenhuma revisão pendente! 🎉</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ações Rápidas -->
+    <div class="row g-3 mt-4">
+        <div class="col-md-4">
+            <a href="{{ url_for('novo_texto') }}" class="card action-card h-100 text-decoration-none">
+                <div class="card-body text-center p-4">
+                    <div class="action-icon bg-primary text-white mx-auto mb-3">
+                        <svg width="32" height="32" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                    </div>
+                    <h5 class="fw-bold">Novo Texto</h5>
+                    <p class="text-muted small mb-0">Inserir e processar texto em alemão</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{{ url_for('flashcards') }}" class="card action-card h-100 text-decoration-none">
+                <div class="card-body text-center p-4">
+                    <div class="action-icon bg-success text-white mx-auto mb-3">
+                        <svg width="32" height="32" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10-4H6c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 12H6V4h8v10z"/></svg>
+                    </div>
+                    <h5 class="fw-bold">Revisar Flashcards</h5>
+                    <p class="text-muted small mb-0">Praticar vocabulário com FSRS</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{{ url_for('biblioteca') }}" class="card action-card h-100 text-decoration-none">
+                <div class="card-body text-center p-4">
+                    <div class="action-icon bg-info text-white mx-auto mb-3">
+                        <svg width="32" height="32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                    </div>
+                    <h5 class="fw-bold">Biblioteca</h5>
+                    <p class="text-muted small mb-0">Ver todos os textos e filtrar</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('weeklyChart');
+    if (!ctx) return;
+    
+    const labels = {{ dias_grafico|map(attribute='data')|list|tojson }};
+    const xpData = {{ dias_grafico|map(attribute='xp')|list|tojson }};
+    const textosData = {{ dias_grafico|map(attribute='textos')|list|tojson }};
+    const flashcardsData = {{ dias_grafico|map(attribute='flashcards')|list|tojson }};
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'XP',
+                    data: xpData,
+                    backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                    borderColor: 'rgba(13, 110, 253, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Textos',
+                    data: textosData,
+                    backgroundColor: 'rgba(25, 135, 84, 0.7)',
+                    borderColor: 'rgba(25, 135, 84, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y1'
+                },
+                {
+                    label: 'Flashcards',
+                    data: flashcardsData,
+                    backgroundColor: 'rgba(255, 193, 7, 0.7)',
+                    borderColor: 'rgba(255, 193, 7, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                y: { type: 'linear', display: true, position: 'left', beginAtZero: true, title: { display: true, text: 'XP' }},
+                y1: { type: 'linear', display: true, position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: 'Quantidade' }}
+            }
+        }
+    });
+});
+</script>
+
+<style>
+.stat-card { border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: transform 0.2s; }
+.stat-card:hover { transform: translateY(-2px); }
+.stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.action-card { border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.2s; color: inherit; }
+.action-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+.action-icon { width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+</style>
+{% endblock %}

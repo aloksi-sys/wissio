@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}{{ codigo }} — WISSIO{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7 text-center">
+        <div class="card shadow-sm p-5" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
+            <div class="mb-3" style="font-size: 4rem;">
+                {% if codigo == 404 %}<i class="bi bi-compass text-muted"></i>
+                {% elif codigo == 403 %}<i class="bi bi-shield-lock text-danger"></i>
+                {% else %}<i class="bi bi-exclamation-triangle text-warning"></i>{% endif %}
+            </div>
+            <h1 class="display-5 fw-bold" style="color: var(--wissio-red);">{{ codigo }}</h1>
+            <h4 class="fw-bold mb-3">{{ titulo }}</h4>
+            <p class="text-muted mb-4">{{ mensagem }}</p>
+
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+                <a href="{{ url_for('home') }}" class="btn btn-wissio-primary">
+                    <i class="bi bi-house me-1"></i>Página Inicial
+                </a>
+                {% if session.get('usuario_id') %}
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-speedometer2 me-1"></i>Dashboard
+                </a>
+                <a href="{{ url_for('biblioteca') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-book me-1"></i>Biblioteca
+                </a>
+                {% else %}
+                <a href="{{ url_for('login') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>Entrar
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
