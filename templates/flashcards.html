@@ -121,6 +121,9 @@
 </style>
 
 <div class="row justify-content-center">
+    <form style="display:none;" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    </form>
     <div class="col-md-10">
 
         {% if cards_data|length > 0 %}
