@@ -1,4 +1,8 @@
+import json
+import random
 import re
+
+
 
 import spacy
 
@@ -175,31 +179,11 @@ def traduzir_palavra(palavra, destino='pt'):
 
     resultado = _TRADUCOES_LOCAIS.get(chave)
 
-    if resultado is None:
-        try:
-            import urllib.parse
-            import urllib.request
-            import json
-            url = (
-                'https://api.mymemory.translated.net/get?q='
-                + urllib.parse.quote(chave)
-                + '&langpair=de|' + destino
-            )
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=_TIMEOUT_API) as resp:
-                dados = json.loads(resp.read().decode('utf-8'))
-            candidatos = dados.get('matches', [])
-            # Escolhe a melhor tradução com score alto
-            melhor = None
-            for cand in candidatos:
-                txt = (cand.get('translation') or '').strip()
-                if txt and txt.lower() != chave:
-                    if melhor is None or cand.get('match', 0) > melhor[1]:
-                        melhor = (txt, cand.get('match', 0))
-            if melhor:
-                resultado = melhor[0].split(';')[0].strip()
-        except Exception:
-            resultado = None
+    # API externa removida. Utilizamos apenas o dicionário local.
+    # Se a palavra não existir no dicionário, o resultado permanecerá None.
+    # O cache ainda será atualizado (com None quando não houver tradução).
+    # Não há chamada externa a serviços de terceiros.
+    # (A lógica original foi substituída para garantir operação offline e sem limites.)
 
     # Nunca devolve a própria palavra como "tradução"
     if resultado and resultado.strip().lower() == chave:
@@ -216,17 +200,29 @@ def processar_texto_alemao(texto):
         palavras = [token.text for token in doc if token.is_alpha]
         tamanho_medio = sum(len(p) for p in palavras) / len(palavras) if palavras else 0
         
-        # Níveis válidos do enum NivelCEFR (A1, A2, B1, B2, C1)
+        # Nova heurística de nível (CEFR aproximado) que combina:
+        #   • tamanho médio das palavras
+        #   • % de palavras longas (>7 caracteres)
+        #   • % de palavras que já constam no dicionário local (indicador de vocabulário simples)
+        palavras = [token.text for token in doc if token.is_alpha]
+        tamanho_medio = sum(len(p) for p in palavras) / len(palavras) if palavras else 0
+        longas = [p for p in palavras if len(p) > 7]
+        pct_longas = len(longas) / len(palavras) if palavras else 0
+        conhecidas = sum(1 for p in palavras if p.lower() in _TRADUCOES_LOCAIS)
+        pct_conhecidas = conhecidas / len(palavras) if palavras else 0
+
         if tamanho_medio < 5:
             nivel = 'A1'
-        elif tamanho_medio < 6.5:
+        elif tamanho_medio < 6.5 and pct_longas < 0.1:
             nivel = 'A2'
-        elif tamanho_medio < 8:
+        elif tamanho_medio < 8 and pct_longas < 0.2:
             nivel = 'B1'
-        elif tamanho_medio < 9.5:
+        elif tamanho_medio < 9.5 or pct_longas >= 0.2:
             nivel = 'B2'
-        else:
+        elif tamanho_medio < 11 or pct_conhecidas < 0.4:
             nivel = 'C1'
+        else:
+            nivel = 'C2'
 
         flashcards_extraidos = []
         vistas = set()
@@ -269,6 +265,19 @@ def processar_texto_alemao(texto):
         for f in flashcards_extraidos:
             f.setdefault('tipo', 'Vocabulário')
             f['traducao'] = _cache_traducoes.get(f['palavra'].lower())
+        # Gerar alternativas (4 opções, 1 correta) para cada flashcard
+        palavras_todas = [f['palavra'] for f in flashcards_extraidos]
+        for f in flashcards_extraidos:
+            correta = f['palavra']
+            outras = [p for p in palavras_todas if p != correta]
+            # se houver menos de 3 alternativas, completa com palavras aleatórias do dicionário local
+            if len(outras) < 3:
+                adicionais = random.sample(list(_TRADUCOES_LOCAIS.keys()), 3 - len(outras))
+                outras.extend(adicionais)
+            distratores = random.sample(outras, 3)
+            opcoes = [correta] + distratores
+            random.shuffle(opcoes)
+            f['alternativas'] = opcoes
 
         palavras_ctest = []
         respostas_ctest = []  # palavra completa de cada lacuna, na ordem

@@ -180,6 +180,7 @@
                     </div>
                     <div id="verso-traducao-conteudo">
                         <div class="traducao-grande" id="verso-traducao">...</div>
+                        <div id="verso-alternativas" class="mt-2"></div>
                     </div>
                     <div class="exemplo-verso" id="verso-exemplo">...</div>
 
@@ -305,6 +306,7 @@
         "traducao": {{ item.flashcard.traducao|tojson }},
         "tipo": {{ (item.flashcard.tipo or "Vocabulário")|tojson }},
         "exemplo": {{ item.flashcard.exemplo|tojson }},
+        "alternativas": {{ (item.flashcard.alternativas or [])|tojson }},
         "origem": {{ (item.flashcard.texto.titulo if item.flashcard.texto else "Texto")|tojson }},
         "estado": {{ item.progresso.state_label|tojson }},
         "reps": {{ item.progresso.reps }},
@@ -417,9 +419,34 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('verso-traducao-conteudo').innerHTML =
                 '<div class="sem-traducao text-center">Tradução não disponível — lembre-se pelo contexto.</div>';
         }
-        document.getElementById('verso-exemplo').innerHTML =
-            item.exemplo ? `“${destacar(item.exemplo, item.palavra)}”`
-                         : '<em class="text-muted">Sem frase de exemplo para este cartão.</em>';
+        // Renderizar alternativas (se houver) e adicionar listener
+        if (Array.isArray(item.alternativas) && item.alternativas.length) {
+            const altDiv = document.getElementById('verso-alternativas');
+            altDiv.innerHTML = item.alternativas.map(a => `<button class="btn btn-outline-primary btn-sm m-1" data-alt="${escaparHtml(a)}">${escaparHtml(a)}</button>`).join('');
+            // Listener para registrar escolha e avaliar FSRS
+            altDiv.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (bloqueado) return;
+                    const escolhida = btn.dataset.alt;
+                    const correta = (escolhida === (item.traducao || ''));
+                    // Feedback visual
+                    altDiv.querySelectorAll('button').forEach(b => b.classList.remove('btn-success','btn-danger','btn-outline-primary'));
+                    btn.classList.add(correta ? 'btn-success' : 'btn-danger');
+                    // Desabilita demais
+                    altDiv.querySelectorAll('button').forEach(b => b.disabled = true);
+                    // Persiste escolha no servidor
+                    fetch(`/flashcards/${item.id}/responder`, {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/x-www-form-urlencoded'},
+                        body: `csrf_token={{ csrf_token() }}&resposta=` + encodeURIComponent(escolhida)
+                    }).catch(()=>{});
+                    // Avalia automaticamente (good se correta, again se errada)
+                    avaliar(correta ? 'good' : 'again');
+                });
+            });
+        } else {
+            document.getElementById('verso-alternativas').innerHTML = '';
+        }
 
         const badgeEstado = document.getElementById('verso-estado');
         badgeEstado.textContent = item.estado;

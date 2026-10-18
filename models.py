@@ -1,6 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import enum
 import secrets
 
@@ -43,8 +43,8 @@ class Usuario(db.Model):
     token_verificacao = db.Column(db.String(100), nullable=True)
     token_verificacao_expira = db.Column(db.DateTime, nullable=True)
     tema_escuro = db.Column(db.Boolean, default=False)  # Preferência de tema
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     # Relacionamentos
     textos = db.relationship('Texto', backref='usuario', lazy=True, cascade='all, delete-orphan')
@@ -63,12 +63,12 @@ class Usuario(db.Model):
     
     def gerar_token_verificacao(self):
         self.token_verificacao = secrets.token_urlsafe(32)
-        self.token_verificacao_expira = datetime.utcnow() + timedelta(hours=24)
+        self.token_verificacao_expira = datetime.now(timezone.utc) + timedelta(hours=24)
         db.session.commit()
     
     def verificar_token(self, token):
         if self.token_verificacao == token and self.token_verificacao_expira:
-            return datetime.utcnow() < self.token_verificacao_expira
+            return datetime.now(timezone.utc) < self.token_verificacao_expira
         return False
     
     def to_dict(self):
@@ -99,7 +99,7 @@ class Texto(db.Model):
     categoria = db.Column(db.String(50), nullable=True)
     tempo_estimado_min = db.Column(db.Integer, nullable=True)
     imagem_url = db.Column(db.String(500), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
     flashcards = db.relationship('Flashcard', backref='texto', lazy=True, cascade='all, delete-orphan')
@@ -114,12 +114,32 @@ class Flashcard(db.Model):
     # Classe gramatical (Substantivo, Verbo, Adjetivo...) — exibida no verso do cartão
     tipo = db.Column(db.String(40), nullable=True)
     exemplo = db.Column(db.Text, nullable=True)
+    # Lista JSON de quatro opções (uma correta)
+    alternativas = db.Column(db.Text, nullable=True)
+    # Armazena a última alternativa escolhida pelo usuário (texto)
+    ultima_resposta = db.Column(db.Text, nullable=True)
+    # Flag indicando se a última resposta foi correta
+    resposta_correta = db.Column(db.Boolean, nullable=True)
     imagem_url = db.Column(db.String(500), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
     texto_id = db.Column(db.Integer, db.ForeignKey('textos.id'), nullable=True)
     progresso = db.relationship('ProgressoFlashcard', backref='flashcard', lazy=True, cascade='all, delete-orphan')
+
+class RespostaFlashcard(db.Model):
+    __tablename__ = 'respostas_flashcards'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    flashcard_id = db.Column(db.Integer, db.ForeignKey('flashcards.id'), nullable=False)
+    resposta_texto = db.Column(db.Text, nullable=True)
+    correta = db.Column(db.Boolean, nullable=True)
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    # Relacionamentos
+    usuario = db.relationship('Usuario', backref='respostas_flashcards')
+    flashcard = db.relationship('Flashcard', backref='respostas_flashcards')
 
 class ProgressoFlashcard(db.Model):
     """Implementação simplificada do algoritmo FSRS para repetição espaçada"""
@@ -138,8 +158,8 @@ class ProgressoFlashcard(db.Model):
     
     last_review = db.Column(db.DateTime, nullable=True)
     next_review = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     @property
     def state_label(self):
@@ -148,7 +168,7 @@ class ProgressoFlashcard(db.Model):
     @property
     def pendente(self):
         """True quando nunca foi estudado ou quando a revisão já venceu."""
-        return self.next_review is None or self.next_review <= datetime.utcnow()
+        return self.next_review is None or self.next_review <= datetime.now(timezone.utc)
     
     __table_args__ = (db.UniqueConstraint('usuario_id', 'flashcard_id', name='uq_usuario_flashcard'),)
 
@@ -164,7 +184,7 @@ class CTestSubmissao(db.Model):
     total = db.Column(db.Integer, default=0)
     percentual = db.Column(db.Float, default=0.0)
     xp_ganho = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 class EstatisticaDiaria(db.Model):
     __tablename__ = 'estatisticas_diarias'
@@ -177,7 +197,7 @@ class EstatisticaDiaria(db.Model):
     ctests_completados = db.Column(db.Integer, default=0)
     xp_ganho = db.Column(db.Integer, default=0)
     tempo_estudo_min = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     __table_args__ = (db.UniqueConstraint('usuario_id', 'data', name='uq_usuario_data'),)

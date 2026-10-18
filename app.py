@@ -1,7 +1,7 @@
 import json
 
 import os, secrets
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort
@@ -324,23 +324,26 @@ def enviar_verificacao_email():
     usuario.gerar_token_verificacao()
     
     # Modo demonstração: sem servidor de e-mail real, retornamos o link para a tela.
-    link_verificacao = url_for('confirmar_email', token=usuario.token_verificacao, _external=True)
+    link_verificacao = url_for('confirmar_email', token=usuario.token_verificacao)
     
     return jsonify({'success': True, 'link': link_verificacao, 'message': 'Link gerado!'})
 
 @app.route('/confirmar-email/<token>')
 def confirmar_email(token):
-    usuario = Usuario.query.filter_by(token_verificacao=token).first()
-    if usuario and usuario.verificar_token(token):
-        usuario.email_verificado = True
-        usuario.token_verificacao = None
-        usuario.token_verificacao_expira = None
-        db.session.commit()
-        flash('E-mail verificado com sucesso! Bem-vindo ao WISSIO.', 'success')
-        return redirect(url_for('home'))
-    else:
-        flash('Token inválido ou expirado. Solicite um novo link.', 'danger')
-        return redirect(url_for('verificar_email'))
+    try:
+        usuario = Usuario.query.filter_by(token_verificacao=token).first()
+        if usuario and usuario.verificar_token(token):
+            usuario.email_verificado = True
+            usuario.token_verificacao = None
+            usuario.token_verificacao_expira = None
+            db.session.commit()
+            flash('E-mail verificado com sucesso! Bem-vindo ao WISSIO.', 'success')
+            return redirect(url_for('home'))
+    except Exception as e:
+        print('Erro na confirmação de email:', e)
+        db.session.rollback()
+    flash('Token inválido ou expirado. Solicite um novo link.', 'danger')
+    return redirect(url_for('verificar_email'))
 
 # ============================================================
 # TEMA ESCURO / CLARO
@@ -773,7 +776,7 @@ def flashcards():
         query = query.filter(
             db.or_(
                 ProgressoFlashcard.id == None,          # ainda não estudado
-                ProgressoFlashcard.next_review <= datetime.utcnow()
+                ProgressoFlashcard.next_review <= datetime.now(timezone.utc)
             )
         )
     
@@ -805,7 +808,7 @@ def painel_flashcards():
     textos = Texto.query.filter_by(usuario_id=usuario.id).order_by(
         Texto.created_at.desc()).all()
     
-    hoje = datetime.utcnow()
+    hoje = datetime.now(timezone.utc)
     total_cards = 0
     total_pendentes = 0
     painel = []
@@ -925,7 +928,7 @@ def dashboard():
     proximas_revisoes = ProgressoFlashcard.query.filter(
         ProgressoFlashcard.usuario_id == usuario.id,
         ProgressoFlashcard.next_review != None,
-        ProgressoFlashcard.next_review <= datetime.utcnow() + timedelta(days=1)
+        ProgressoFlashcard.next_review <= datetime.now(timezone.utc) + timedelta(days=1)
     ).order_by(ProgressoFlashcard.next_review).limit(10).all()
     
     return render_template('dashboard.html', 
@@ -1123,7 +1126,7 @@ def processar_revisao(progresso, facilidade):
         progresso.reps = 0
     if progresso.state is None:
         progresso.state = 0
-    agora = datetime.utcnow()
+    agora = datetime.now(timezone.utc)
 
     if facilidade == 'again':
         progresso.lapses += 1

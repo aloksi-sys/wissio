@@ -9,7 +9,7 @@ def approx_delta(dt1, dt2, seconds=5):
 
 def test_processar_revisao_again():
     prog = ProgressoFlashcard(usuario_id=1, flashcard_id=1)
-    before = datetime.utcnow()
+    before = datetime.now(timezone.utc)
     prog = processar_revisao(prog, 'again')
     assert prog.lapses == 1
     assert prog.stability == 0.0
@@ -26,7 +26,7 @@ def test_processar_revisao_hard_new():
     assert prog.stability == 0.5
     assert prog.state == 0
     assert prog.next_review is not None
-    assert approx_delta(prog.next_review, datetime.utcnow() + timedelta(hours=6))
+    assert approx_delta(prog.next_review, datetime.now(timezone.utc) + timedelta(hours=6))
 
 def test_processar_revisao_good_new():
     prog = ProgressoFlashcard(usuario_id=1, flashcard_id=1)
@@ -36,7 +36,7 @@ def test_processar_revisao_good_new():
     assert prog.stability == 1.0
     assert prog.state == 2
     assert prog.next_review is not None
-    assert approx_delta(prog.next_review, datetime.utcnow() + timedelta(days=1))
+    assert approx_delta(prog.next_review, datetime.now(timezone.utc) + timedelta(days=1))
 
 def test_processar_revisao_easy_new():
     prog = ProgressoFlashcard(usuario_id=1, flashcard_id=1)
@@ -47,4 +47,4 @@ def test_processar_revisao_easy_new():
     assert prog.stability == 4.0
     assert prog.state == 2
     assert prog.next_review is not None
-    assert approx_delta(prog.next_review, datetime.utcnow() + timedelta(days=4))
+    assert approx_delta(prog.next_review, datetime.now(timezone.utc) + timedelta(days=4))

@@ -22,7 +22,11 @@
             </div>
 
             <div class="d-grid gap-2">
-                <button class="btn btn-wissio-primary" id="btn-gerar" onclick="gerarLink()">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <form id="csrf-form" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+<button class="btn btn-wissio-primary" id="btn-gerar" onclick="gerarLink()">
                     <i class="bi bi-send me-2"></i>Gerar link de verificação
                 </button>
             </div>
