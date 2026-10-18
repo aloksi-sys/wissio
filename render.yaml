@@ -16,7 +16,7 @@ services:
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: flask db upgrade && gunicorn app:app
     envVars:
       - key: FLASK_ENV
         value: production
