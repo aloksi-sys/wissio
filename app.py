@@ -1,5 +1,6 @@
-import os
-import secrets
+import json
+
+import os, secrets
 from datetime import datetime, date, timedelta
 from functools import wraps
 
@@ -7,7 +8,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_wtf.csrf import CSRFProtect
 from flask_migrate import Migrate
 
-from models import db, Usuario, Texto, Flashcard, ProgressoFlashcard, CTestSubmissao, EstatisticaDiaria, NivelCEFR, ObjetivoAprendizagem
+from models import db, Usuario, Texto, Flashcard, ProgressoFlashcard, CTestSubmissao, EstatisticaDiaria, NivelCEFR, ObjetivoAprendizagem, RespostaFlashcard
 from processador import processar_texto_alemao
 
 app = Flask(__name__)
@@ -57,6 +58,9 @@ def _mapa_colunas_pendentes():
         'flashcards': [
             ('traducao', 'VARCHAR(100)', None),
             ('tipo', 'VARCHAR(40)', None),
+            ('alternativas', 'TEXT', None),
+    ('ultima_resposta', 'TEXT', None),
+    ('resposta_correta', 'BOOLEAN', None),
         ],
         'textos': [
             ('ctest_respostas', texto_json, None),
@@ -584,6 +588,7 @@ def novo_texto():
                 traducao=card.get('traducao'),
                 tipo=card.get('tipo'),
                 exemplo=card['exemplo'],
+                alternativas=json.dumps(card.get('alternativas') or []),
                 usuario_id=usuario.id,
                 texto_id=texto_obj.id
             )
@@ -835,8 +840,29 @@ def painel_flashcards():
                            total_cards=total_cards,
                            total_pendentes=total_pendentes)
 
-@app.route('/flashcards/<int:id>/revisar', methods=['POST'])
+@app.route('/flashcards/<int:id>/responder', methods=['POST'])
+@csrf.exempt
 @login_required
+def responder_flashcard(id):
+    usuario = get_current_user()
+    flashcard = Flashcard.query.get_or_404(id)
+    if flashcard.usuario_id != usuario.id:
+        abort(403)
+    resposta = request.form.get('resposta')
+    correta = (resposta == flashcard.traducao)
+    # persiste registro histórico
+    registro = RespostaFlashcard(
+        usuario_id=usuario.id,
+        flashcard_id=flashcard.id,
+        resposta_texto=resposta,
+        correta=correta,
+    )
+    db.session.add(registro)
+    db.session.commit()
+    return jsonify({'correta': correta})
+
+@login_required
+@app.route('/flashcards/<int:id>/revisar', methods=['POST'])
 def revisar_flashcard(id):
     usuario = get_current_user()
     flashcard = Flashcard.query.get_or_404(id)
@@ -855,62 +881,15 @@ def revisar_flashcard(id):
         progresso = ProgressoFlashcard(usuario_id=usuario.id, flashcard_id=flashcard.id)
         db.session.add(progresso)
     
-    # FSRS Simplificado
-    agora = datetime.utcnow()
-    
-    if facilidade == 'again':
-        # Esqueceu - resetar
-        progresso.lapses += 1
-        progresso.stability = 0.0
-        progresso.difficulty = min(10, progresso.difficulty + 1)
-        progresso.state = 1  # Learning
-        progresso.next_review = agora + timedelta(minutes=10)
-    elif facilidade == 'hard':
-        progresso.difficulty = min(10, progresso.difficulty + 0.5)
-        if progresso.state == 0:  # New
-            progresso.stability = 0.5
-            progresso.next_review = agora + timedelta(hours=6)
-        elif progresso.state == 1:  # Learning
-            progresso.stability *= 1.3
-            progresso.next_review = agora + timedelta(days=progresso.stability)
-        else:  # Review
-            progresso.stability *= 1.2
-            progresso.next_review = agora + timedelta(days=progresso.stability)
-    elif facilidade == 'good':
-        progresso.reps += 1
-        if progresso.state == 0:  # New -> Review
-            progresso.stability = 1.0
-            progresso.state = 2
-            progresso.next_review = agora + timedelta(days=1)
-        elif progresso.state == 1:  # Learning -> Review
-            progresso.stability = max(1.0, progresso.stability * 1.5)
-            progresso.state = 2
-            progresso.next_review = agora + timedelta(days=progresso.stability)
-        else:  # Review
-            progresso.stability *= 2.5
-            progresso.next_review = agora + timedelta(days=progresso.stability)
-    elif facilidade == 'easy':
-        progresso.reps += 1
-        progresso.difficulty = max(1, progresso.difficulty - 0.5)
-        if progresso.state == 0:
-            progresso.stability = 4.0
-            progresso.state = 2
-            progresso.next_review = agora + timedelta(days=4)
-        else:
-            progresso.stability *= 3.0
-            progresso.next_review = agora + timedelta(days=progresso.stability)
-    
-    progresso.last_review = agora
-    progresso.updated_at = agora
-    
+    # Delegar lógica ao helper
+    progresso = processar_revisao(progresso, facilidade)
     db.session.commit()
-    
     atualizar_estatistica_diaria(usuario.id, flashcards_revisados=1, xp_ganho=5)
-    
     return jsonify({'success': True, 'next_review': progresso.next_review.isoformat() if progresso.next_review else None})
 
-# ============================================================
-# DASHBOARD & PERFIL
+      # Endereço `/flashcards/<int:id>/responder` antigo removido – histórico de respostas agora é armazenado na tabela `RespostaFlashcard`.
+      # (mantido apenas para referência e evitar colisões de rota)
+
 # ============================================================
 
 @app.route('/dashboard')
@@ -1129,5 +1108,68 @@ def erro_404(e):
 def erro_500(e):
     return _render_erro(500)
 
-if __name__ == '__main__':
+def processar_revisao(progresso, facilidade):
+    """Aplica a lógica FSRS simplificada ao objeto ProgressoFlashcard.
+    Retorna o objeto atualizado.
+    """
+    # Ensure defaults are set for transient objects
+    if progresso.lapses is None:
+        progresso.lapses = 0
+    if progresso.stability is None:
+        progresso.stability = 0.0
+    if progresso.difficulty is None:
+        progresso.difficulty = 5.0
+    if progresso.reps is None:
+        progresso.reps = 0
+    if progresso.state is None:
+        progresso.state = 0
+    agora = datetime.utcnow()
+
+    if facilidade == 'again':
+        progresso.lapses += 1
+        progresso.stability = 0.0
+        progresso.difficulty = min(10, progresso.difficulty + 1)
+        progresso.state = 1  # Learning
+        progresso.next_review = agora + timedelta(minutes=10)
+    elif facilidade == 'hard':
+        progresso.difficulty = min(10, progresso.difficulty + 0.5)
+        if progresso.state == 0:  # New
+            progresso.stability = 0.5
+            progresso.next_review = agora + timedelta(hours=6)
+        elif progresso.state == 1:  # Learning
+            progresso.stability *= 1.3
+            progresso.next_review = agora + timedelta(days=progresso.stability)
+        else:  # Review
+            progresso.stability *= 1.2
+            progresso.next_review = agora + timedelta(days=progresso.stability)
+    elif facilidade == 'good':
+        progresso.reps += 1
+        if progresso.state == 0:  # New -> Review
+            progresso.stability = 1.0
+            progresso.state = 2
+            progresso.next_review = agora + timedelta(days=1)
+        elif progresso.state == 1:  # Learning -> Review
+            progresso.stability = max(1.0, progresso.stability * 1.5)
+            progresso.state = 2
+            progresso.next_review = agora + timedelta(days=progresso.stability)
+        else:  # Review
+            progresso.stability *= 2.5
+            progresso.next_review = agora + timedelta(days=progresso.stability)
+    elif facilidade == 'easy':
+        progresso.reps += 1
+        progresso.difficulty = max(1, progresso.difficulty - 0.5)
+        if progresso.state == 0:
+            progresso.stability = 4.0
+            progresso.state = 2
+            progresso.next_review = agora + timedelta(days=4)
+        else:
+            progresso.stability *= 3.0
+            progresso.next_review = agora + timedelta(days=progresso.stability)
+    else:
+        progresso.next_review = agora
+    progresso.last_review = agora
+    progresso.updated_at = agora
+    return progresso
+
+
     app.run(debug=os.environ.get('FLASK_ENV') != 'production')

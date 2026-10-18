@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: wissio
+      POSTGRES_PASSWORD: wissio
+      POSTGRES_DB: wissio
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # optional: expose for debugging
+    # ports:
+    #   - "5432:5432"
+
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgres://wissio:wissio@db:5432/wissio
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
