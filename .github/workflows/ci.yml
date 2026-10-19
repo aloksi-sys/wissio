@@ -66,5 +66,5 @@ jobs:
 
       - name: Push Docker image
         run: |
-          docker tag wissio-app:latest ${{ secrets.DOCKER_USERNAME }}/wissio-app:latest
+          docker tag wissio-app:latest ${{ secrets.DOCKER_USERNAME }}/wissio-app:latest2
           docker push ${{ secrets.DOCKER_USERNAME }}/wissio-app:latest
