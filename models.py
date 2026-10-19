@@ -67,8 +67,13 @@ class Usuario(db.Model):
         db.session.commit()
     
     def verificar_token(self, token):
+        # Garante que a comparação de datas seja feita entre objetos "aware"
         if self.token_verificacao == token and self.token_verificacao_expira:
-            return datetime.now(timezone.utc) < self.token_verificacao_expira
+            exp = self.token_verificacao_expira
+            # Se o valor armazenado no banco não tem informação de timezone, assume UTC
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            return datetime.now(timezone.utc) < exp
         return False
     
     def to_dict(self):

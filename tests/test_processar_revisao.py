@@ -1,5 +1,6 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
 
 from app import processar_revisao, ProgressoFlashcard
 
