@@ -15,6 +15,7 @@ WORKDIR /app
 # Copy only requirements first for better layer caching
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir psycopg2-binary==2.9.9
 
 # Copy the rest of the application code
 COPY . .
