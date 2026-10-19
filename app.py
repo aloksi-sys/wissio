@@ -22,6 +22,15 @@ _db_url = os.environ.get('DATABASE_URL', 'sqlite:///wissio.db')
 # Compatibilidade: SQLAlchemy exige o prefixo postgresql:// (Render entrega postgres://)
 if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+
+# Se o driver postgresql:// padrão falhar por falta de psycopg2, tenta usar pg8000 ou ajusta o esquema
+try:
+    import psycopg2
+except ImportError:
+    # Se o psycopg2 não existir no ambiente, troca o driver para postgresql+pg8000://
+    if _db_url.startswith('postgresql://'):
+        _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
