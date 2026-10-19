@@ -3,7 +3,8 @@
 # Use a lightweight Python base image
 FROM python:3.12-slim
 
-# Install system dependencies (if any) – keep it minimal
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
@@ -30,4 +31,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 5000
 
 # Use gunicorn as the production WSGI server
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+ENTRYPOINT ["/app/entrypoint.sh"]
