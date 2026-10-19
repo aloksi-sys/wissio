@@ -21,6 +21,9 @@ RUN pip install --no-cache-dir psycopg2-binary==2.9.9
 # Copy the rest of the application code
 COPY . .
 
+# Garante permissão de execução no script de entrada em qualquer circunstância
+RUN chmod +x /app/entrypoint.sh
+
 # Environment variables
 ENV FLASK_APP=app.py
 ENV FLASK_RUN_HOST=0.0.0.0
