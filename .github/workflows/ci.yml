@@ -25,5 +25,5 @@ jobs:
 
     - name: Push Docker image to Docker Hub
       run: |
-        docker tag wissio-app:latest ${{ secrets.DOCKER_USERNAME }}/wissio-app:latest2
-        docker push ${{ secrets.DOCKER_USERNAME }}/wissio-app:latest2
+        docker tag wissio-app:latest ${{ secrets.DOCKER_USERNAME }}/wissio-app:${{ github.sha }}
+        docker push ${{ secrets.DOCKER_USERNAME }}/wissio-app:${{ github.sha }}
