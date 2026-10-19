@@ -42,7 +42,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t wissio-app:latest .
+          docker build --no-cache -t wissio-app:latest .
 
       - name: Install Node
         uses: actions/setup-node@v4
