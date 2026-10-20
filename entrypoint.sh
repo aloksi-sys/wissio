@@ -1,11 +1,11 @@
 #!/bin/sh
-set -e
+set -ex
 
 echo "=== INICIANDO ENTRYPOINT ==="
 
-# Tenta executar as migrações, mas não quebra o deploy se o banco demorar um segundo a mais
-echo "Executando migrações do banco de dados..."
-flask db upgrade || echo "Aviso: flask db upgrade falhou ou tabelas já existem, continuando..."
+# Cria as tabelas no banco se ainda não existirem
+echo "Criando tabelas do banco de dados se necessário..."
+python -c "import wissio_app; from wissio_app import db; db.create_all()"
 
 PORT_TO_USE="${PORT:-5000}"
 echo "Iniciando o Gunicorn na porta ${PORT_TO_USE}..."
