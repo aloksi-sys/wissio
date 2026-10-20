@@ -19,23 +19,8 @@ app = Flask(__name__)
 # Configurações de segurança
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
-# Configuração do banco de dados
-# Em produção (Render/Supabase) a variável DATABASE_URL contém a URI do Postgres.
-_db_url = os.environ.get('DATABASE_URL', 'sqlite:///wissio.db')
-# Compatibilidade: SQLAlchemy exige o prefixo postgresql:// (Render entrega postgres://)
-if _db_url.startswith('postgres://'):
-    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
-
-# Se o driver postgresql:// padrão falhar por falta de psycopg2, tenta usar pg8000 ou ajusta o esquema
-if _db_url.startswith('postgresql://'):
-    try:
-        import psycopg2
-    except Exception:
-        try:
-            import pg8000
-            _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://')
-        except Exception:
-            pass
+# Use a local SQLite database (ignore external DATABASE_URL)
+_db_url = 'sqlite:///wissio.db'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -55,6 +40,15 @@ def csrf_protect(f):
             token = request.headers.get('X-CSRF-Token') or request.form.get('csrf_token')
             if not token or token != session.get('_csrf_token'):
                 abort(400, description='Invalid CSRF token')
+        return f(*args, **kwargs)
+    return decorated
+
+# Decorador para exigir login
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated
 

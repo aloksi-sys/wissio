@@ -2,9 +2,9 @@
 # ---------------------------------------------------
 # Use a lightweight Python base image
 FROM python:3.12-slim
+ARG CACHE_BUST=2
 
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
@@ -13,25 +13,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory inside the container
 WORKDIR /app
 
-# Copy only requirements first for better layer caching
+# Cache‑bust argument – change its value to force a rebuild of layers below
+ARG CACHE_BUST=3
+RUN echo "cache bust $CACHE_BUST"
+
+
+# Install Python dependencies first (cached)
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir psycopg2-binary==2.9.9
 
-# Copy the rest of the application code
-COPY . .
-
-# Garante permissão de execução no script de entrada em qualquer circunstância
+# Copy the entrypoint script and make it executable
+COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# Environment variables
-ENV FLASK_APP=wissio_app.py
+# Copy the rest of the application source code
+COPY . .
+
+# Environment variables for Flask
+ENV FLASK_APP=wissio_app
 ENV FLASK_RUN_HOST=0.0.0.0
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
-# Expose the port Flask will run on
+# Expose the port used by Gunicorn
 EXPOSE 5000
 
-# Use gunicorn as the production WSGI server
+# Use Gunicorn as the production WSGI server
 ENTRYPOINT ["/app/entrypoint.sh"]

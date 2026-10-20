@@ -1,1 +1,1 @@
-web: flask db upgrade && gunicorn wissio_app:app --bind 0.0.0.0:$PORT
+web: gunicorn wissio_app:app --bind 0.0.0.0:$PORT
