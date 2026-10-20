@@ -2,7 +2,7 @@
 # ---------------------------------------------------
 # Use a lightweight Python base image
 FROM python:3.12-slim
-ARG CACHE_BUST=2
+ARG CACHE_BUST=3
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
