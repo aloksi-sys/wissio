@@ -191,6 +191,27 @@ class CTestSubmissao(db.Model):
     xp_ganho = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+class TranslationCache(db.Model):
+    __tablename__ = 'translation_cache'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    src_text = db.Column(db.Text, nullable=False, unique=True)
+    src_lang = db.Column(db.String(5), nullable=False)
+    tgt_lang = db.Column(db.String(5), nullable=False)
+    translated = db.Column(db.Text, nullable=False)
+    definition = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            'src_text': self.src_text,
+            'src_lang': self.src_lang,
+            'tgt_lang': self.tgt_lang,
+            'translated': self.translated,
+            'definition': self.definition,
+        }
+
+
 class EstatisticaDiaria(db.Model):
     __tablename__ = 'estatisticas_diarias'
     

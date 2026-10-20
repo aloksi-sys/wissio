@@ -1,45 +1,21 @@
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-
-# Virtual environments
+# Virtual environment
 venv/
-env/
-ENV/
-
-# Database
-instance/*.db
-*.sqlite
-*.sqlite3
-
-# Environment variables
 .env
-.env.local
-.env.*.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Coverage
-htmlcov/
-.coverage
-.pytest_cache/
-
-# Distribution / Packaging
-dist/
+# Instance folder (SQLite DB)
+instance/
+# Distribution / build
 build/
 *.egg-info/
-
-# Migration lock
-migrations/versions/*.pyc 
+# OS files
+.DS_Store
+Thumbs.db
+# IDE / editor
+.idea/
+.vscode/
+# Logs
+*.log
+# Misc
+*.sqlite3

@@ -1,7 +1,7 @@
 import requests
 import json
 from datetime import datetime
-from .models import TranslationCache, db
+from models import TranslationCache, db
 
 # Endpoints públicos gratuitos (sem chave)
 LIBRETRANSLATE_URL = "https://libretranslate.de/translate"
@@ -24,13 +24,11 @@ def _fetch_translation(text: str, src: str = "pt", tgt: str = "en") -> str:
     return data.get("translatedText", "")
 
 def _fetch_definition(word: str) -> str | None:
-    # DictionaryAPI.dev funciona apenas em inglês
     resp = requests.get(f"{DICTIONARY_API_URL}{word.lower()}", timeout=10)
     if resp.status_code != 200:
         return None
     try:
         result = resp.json()
-        # Primeiro sentido curto
         return result[0]["meanings"][0]["definitions"][0]["definition"]
     except Exception:
         return None

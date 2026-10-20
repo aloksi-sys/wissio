@@ -25,7 +25,7 @@ COPY . .
 RUN chmod +x /app/entrypoint.sh
 
 # Environment variables
-ENV FLASK_APP=app.py
+ENV FLASK_APP=wissio_app.py
 ENV FLASK_RUN_HOST=0.0.0.0
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
