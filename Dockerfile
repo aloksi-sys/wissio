@@ -1,8 +1,7 @@
 # Dockerfile for the Wissio Flask application - SQLite ONLY
 # ---------------------------------------------------
-# Use a lightweight Python base image
 FROM python:3.12-slim
-ARG CACHE_BUST=7
+ARG CACHE_BUST=8
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -13,30 +12,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory inside the container
 WORKDIR /app
 
-# Cache-bust argument – change its value to force a rebuild of layers below
-ARG CACHE_BUST=7
+# Cache-bust argument
+ARG CACHE_BUST=8
 RUN echo "cache bust $CACHE_BUST"
 
-# Install Python dependencies first (cached)
+# Install Python dependencies
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entrypoint script and make it executable
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-# Copy the rest of the application source code
+# Copy the application source code
 COPY . .
 
-# Environment variables for Flask - SQLITE ONLY
+# Environment variables
 ENV FLASK_APP=wissio_app
 ENV FLASK_RUN_HOST=0.0.0.0
-ENV DATABASE_URL=
-ENV SQLALCHEMY_DATABASE_URI=sqlite:///wissio.db
+ENV DATABASE_URL=""
+ENV SQLALCHEMY_DATABASE_URI="sqlite:///wissio.db"
 ENV PYTHONUNBUFFERED=1
 
-# Expose the port used by Gunicorn
+# Expose the port
 EXPOSE 5000
 
-# Use Gunicorn as the production WSGI server
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Inicialização direta no shell para evitar erro 128 (CRLF/LF)
+CMD sh -c "unset DATABASE_URL && python init_db.py && python -m gunicorn -b 0.0.0.0:${PORT:-5000} wissio_app:app"

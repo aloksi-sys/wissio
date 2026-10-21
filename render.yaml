@@ -1,7 +1,3 @@
-# Configuração de Deploy no Render - SQLite ONLY
-# NENHUMA referência a Supabase ou PostgreSQL aqui
-# O banco é totalmente local em wissio.db dentro do container
-
 services:
   - type: web
     name: wissio
@@ -9,7 +5,6 @@ services:
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
-    startCommand: ./entrypoint.sh
     envVars:
       - key: FLASK_ENV
         value: production
