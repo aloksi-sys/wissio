@@ -567,14 +567,16 @@ def translate_with_definition(text: str, src: str = "de", tgt: str = "pt"):
     except Exception:
         pass  # Ignorar erros de DB no cache
     
-    # 1) Tradução via API LibreTranslate
-    translated = _fetch_translation_api(text, src, tgt)
-    
-    # 2) Se falhar, usar tradução local
-    if not translated:
+    # 1) Primeiro, tentativa de tradução local (rápida, sem depender de API)
+    translated = None
+    if src == 'de':
         translated = traduzir_palavra_local_de(text)
-        if not translated and src == 'en':
-            translated = traduzir_palavra_local_en(text)
+    if not translated and src == 'en':
+        translated = traduzir_palavra_local_en(text)
+    
+    # 2) Tradução via API LibreTranslate (apenas se fallback não achar)
+    if not translated:
+        translated = _fetch_translation_api(text, src, tgt)
         
         if translated:
             # Buscar definição no dicionário em inglês se traduzimos de inglês
