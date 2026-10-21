@@ -2,7 +2,7 @@
 # ---------------------------------------------------
 # Use a lightweight Python base image
 FROM python:3.12-slim
-ARG CACHE_BUST=6
+ARG CACHE_BUST=7
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Cache-bust argument – change its value to force a rebuild of layers below
-ARG CACHE_BUST=6
+ARG CACHE_BUST=7
 RUN echo "cache bust $CACHE_BUST"
 
 # Install Python dependencies first (cached)
