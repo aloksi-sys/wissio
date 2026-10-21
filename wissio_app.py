@@ -506,7 +506,10 @@ def onboarding_plano():
 def dicas_alemao():
     """
     Rota para exibir dicas de alemão com filtros por nível CEFR.
+    Exibe 5 dicas aleatoriamente, atualizando com o botão 'Atualizar'.
     """
+    import random
+    
     # Obter filtros da query string
     filtro_nivel = request.args.get('nivel', '').upper()
     filtro_categoria = request.args.get('categoria', '').lower()
@@ -520,12 +523,17 @@ def dicas_alemao():
     if filtro_categoria:
         dicas_filtradas = [d for d in dicas_filtradas if d.get('categoria', '').lower() == filtro_categoria]
     
+    # Embaralhar e pegar apenas 5 dicas para exibir
+    random.shuffle(dicas_filtradas)
+    dicas_para_exibir = dicas_filtradas[:5]
+    
     # Categorias únicas para filtro
     categorias = sorted(set(d.get('categoria', 'outros') for d in DICAS_ALEMAO))
     
     return render_template('dicas_alemao.html', 
-                          dicas=dicas_filtradas, 
+                          dicas=dicas_para_exibir, 
                           total_dicas=len(dicas_filtradas),
+                          total_filtradas=len(dicas_filtradas),
                           categorias=categorias,
                           filtro_nivel=filtro_nivel,
                           filtro_categoria=filtro_categoria)
