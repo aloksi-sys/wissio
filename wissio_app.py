@@ -436,14 +436,31 @@ def onboarding_objetivos():
     usuario = get_current_user()
     
     if request.method == 'POST':
-        objetivo = request.form.get('objetivo', '')
-        if objetivo in ObjetivoAprendizagem.__members__:
-            usuario.objetivo = ObjetivoAprendizagem[objetivo]
+        # Mapear string para o enum (aceitar valor ou name)
+        objetivo_str = request.form.get('objetivo', '')
+        objetivo_enum = None
+        
+        # Primeiro tenta pelo VALOR (por ex: 'viajar' -> VIAJAR)
+        try:
+            objetivo_enum = ObjetivoAprendizagem(objetivo_str)
+        except ValueError:
+            pass
+        
+        # Depois tenta pelo NOME (por ex: 'VIAJAR' -> VIAJAR)
+        if objetivo_enum is None and objetivo_str in ObjetivoAprendizagem.__members__:
+            objetivo_enum = ObjetivoAprendizagem[objetivo_str]
+        
+        if objetivo_enum:
+            usuario.objetivo = objetivo_enum
             db.session.commit()
             flash('Objetivo salvo! Continue para seu plano de estudos.', 'success')
             return redirect(url_for('onboarding_plano'))
-        flash('Objetivo inválido.', 'danger')
-        return redirect(url_for('onboarding_objetivos'))
+        # Se nenhum objetivo válido for encontrado, salva como OUTROS por padrão
+        else:
+            usuario.objetivo = ObjetivoAprendizagem.OUTROS
+            db.session.commit()
+            flash('Objetivo definido como "Outros". Continue para seu plano de estudos.', 'success')
+            return redirect(url_for('onboarding_plano'))
     
     return render_template('onboarding_objetivos.html', objetivos=ObjetivoAprendizagem)
 
