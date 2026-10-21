@@ -1,4 +1,6 @@
 import json
+import sys
+import random
 
 import os, secrets
 from datetime import datetime, date, timedelta, timezone
@@ -16,7 +18,14 @@ from translation import translate_with_definition
 
 app = Flask(__name__)
 
-# Configurações de segurança
+# Remove any external DATABASE_URL that Render may inject
+if 'DATABASE_URL' in os.environ:
+    del os.environ['DATABASE_URL']
+
+# Debug: show DB URI after possible env removal
+print('DEBUG: DB URI after env cleanup:', app.config.get('SQLALCHEMY_DATABASE_URI'))
+sys.stdout.flush()
+
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
 # Use a local SQLite database (ignore external DATABASE_URL)
@@ -250,5 +259,5 @@ def obter_dica_aleatoria():
     ]
     return jsonify({'dica': random.choice(dicas)})
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+print('FINAL DB URI:', app.config.get('SQLALCHEMY_DATABASE_URI'))
+# app.run(host='0.0.0.0', port=5000, debug=False)
