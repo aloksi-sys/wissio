@@ -121,9 +121,6 @@
 </style>
 
 <div class="row justify-content-center">
-    <form style="display:none;" method="post">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
-    </form>
     <div class="col-md-10">
 
         {% if cards_data|length > 0 %}
@@ -438,7 +435,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     fetch(`/flashcards/${item.id}/responder`, {
                         method: 'POST',
                         headers: {'Content-Type':'application/x-www-form-urlencoded'},
-                        body: `csrf_token=${document.querySelector('input[name="csrf_token"]').value}&resposta=` + encodeURIComponent(escolhida)
+                        body: `resposta=` + encodeURIComponent(escolhida)
                     }).catch(()=>{});
                     // Avalia automaticamente (good se correta, again se errada)
                     avaliar(correta ? 'good' : 'again');
@@ -486,7 +483,7 @@ document.addEventListener('DOMContentLoaded', function () {
         fetch(`/flashcards/${item.id}/revisar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'csrf_token=' + document.querySelector('input[name="csrf_token"]').value + '&facilidade=' + encodeURIComponent(facilidade)
+            body: 'facilidade=' + encodeURIComponent(facilidade)
         }).catch(() => {});
 
         if (facilidade === 'again') {

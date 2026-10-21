@@ -470,12 +470,56 @@ def onboarding_plano():
 
 @app.route('/dicas-alemao')
 def dicas_alemao():
-    return render_template('dicas_alemao.html')
+    # Lista de dicas de alemão
+    dicas = [
+        {'titulo': 'Aprenda as Preposições', 'conteudo': 'As preposições ingles: in, on, at, by, for, with têm equivalentes no alemão: in, an, auf, bei, für, mit. Use-as corretamente para expressar localização, tempo e relações.', 'categoria': 'gramatica'},
+        {'titulo': 'Declínios de Artigos', 'conteudo': 'O alemão tem artigos definidos e indefinidos que mudam conforme o gênero, número e caso da palavra que acompanham. Mas, Einen, Eine, Ein, and Eine foram os artigos mais comuns.', 'categoria': 'vocabulario'},
+        {'titulo': 'Padrão de Concordância', 'conteudo': 'No alemão, os adjetivos concordam em gênero, número e caso com o artigo. Use a tabela de declinação para determinar a forma correta.', 'categoria': 'gramatica'},
+        {'titulo': 'Pronomes Pessoais', 'conteudo': 'Ich, Du, Er/Sie/Es, Wir, Ihr, Sie são os pronomes pessoais. Note que "Sie" (você formal) usa a mesma forma para plural e 3ª pessoa do singular.', 'categoria': 'vocabulario'},
+        {'titulo': 'Verbos Essenciais', 'conteudo': 'sein (ser/estar), haben (ter), werden (futuro), können (poder), müssen (dever), sollen (dever), mögen (gostar). Dominar esses verbos é fundamental.', 'categoria': 'verbo'},
+        {'titulo': 'Acentuação Gráfica', 'conteudo': 'Em alemão, acentos gráficos são raros: o trema (ä, ö, ü) indica palavras diferentes (bât → bato). O eszeleto (ß) substitui "ss" em palavras longas.', 'categoria': 'pronuncia'},
+        {'titulo': 'Pergunta com "W" ', 'conteudo': 'Werp, Warum, Wie, Wo, Wen, Was são palavras interrogativas comuns. Combine-as com verbos em posição correta (segundo elemento após sujeito).', 'categoria': 'gramatica'},
+        {'titulo': 'Formação do Futuro', 'conteudo': 'O futuro se forma com "werden" + infinitivo: ich werde lesen, du wirst lesen. Também pode-se usar "halten" para ações contínuas: ich halte das Neuigkeiten auf dem Laufen.', 'categoria': 'tempo'},
+        {'titulo': 'Números Cardinales', 'conteudo': 'Eins, zwei, drei, vier, fünf, sechs, sieben, acht, neun, zehn. Para maiores, use tausend (1.000) e million (1.000.000).', 'categoria': 'numeros'},
+        {'titulo': 'Conjunções', 'conteudo': 'Und, oder, aber, denn, sondern, weil, obwohl, wenn, falls, während, nachdem são conjunções essenciais para conectar ideias.', 'categoria': 'gramatica'},
+        {'titulo': 'Conjugação do Verbo', 'conteudo': 'O verbo principal vem no final da oração (Trennbild). Em frases declarativas: Subjekat + Hilfsverb + Partizip II. Em interrogativas: Verb + Subjekat.', 'categoria': 'verbo'},
+        {'titulo': 'Artigos Definidos', 'conteudo': 'Der (masculino), Die (feminino), Das (neutro) são artigos definidos. Lembre-se da regra: der-die-das para artigo definido e ein-eine-ein para indefinido.', 'categoria': 'vocabulario'},
+    ]
+    return render_template('dicas_alemao.html', dicas=dicas, total_dicas=len(dicas))
 
 
 @app.route('/verificar-email')
 @login_required
 def verificar_email():
+    # Verifica se o token de verificação está presente
+    token = request.args.get('token')
+    
+    if token:
+        # Processa o token de verificação
+        user = Usuario.query.get(session['usuario_id'])
+        if user and user.token_verificacao == token and user.verificar_token(token):
+            user.email_verificado = True
+            user.token_verificacao = None
+            user.token_verificacao_expira = None
+            db.session.commit()
+            flash('E-mail verificado com sucesso!', 'success')
+            return redirect(url_for('home'))
+        else:
+            flash('Token inválido ou expirado.', 'danger')
+            return redirect(url_for('home'))
+    
+    # Caso base: verifica se o email já está verificado
+    user = Usuario.query.get(session['usuario_id'])
+    if user and user.email_verificado:
+        return render_template('verificar_email.html')
+    
+    # Token necessário para verificação
+    if user:
+        user.gerar_token_verificacao()
+        session['token_verificacao'] = user.token_verificacao
+        # Em produção, enviaria email. Aqui, mostra o token para teste
+        flash(f'Token de verificação: {user.token_verificacao}. Copie e cole na URL para verificar.', 'info')
+    
     return render_template('verificar_email.html')
 
 
@@ -893,8 +937,17 @@ def painel_flashcards():
             ).first()
             progressos[card.id] = prog
             
-            if not prog or not prog.next_review or prog.next_review <= datetime.now(timezone.utc):
+            if not prog or not prog.next_review:
                 pendentes += 1
+            else:
+                # Garantir comparação segura entre datetimes
+                next_review = prog.next_review
+                now = datetime.now(timezone.utc)
+                # Se next_review for naive, torná-lo aware
+                if next_review.tzinfo is None:
+                    next_review = next_review.replace(tzinfo=timezone.utc)
+                if next_review <= now:
+                    pendentes += 1
         
         total_cards += len(cards)
         total_pendentes += pendentes

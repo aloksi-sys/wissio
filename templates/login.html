@@ -7,7 +7,6 @@
             <h3 class="card-title text-center mb-4">Entrar no WISSIO</h3>
             
             <form method="POST" action="{{ url_for('login') }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                 <div class="mb-3">
                     <label class="form-label">E-mail</label>
                     <input type="email" name="email" class="form-control" required placeholder="seu@email.com" value="{{ request.form.email if request.form.email else '' }}">

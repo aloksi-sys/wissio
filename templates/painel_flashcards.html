@@ -167,7 +167,6 @@
         <div class="text-center py-3">
             <p class="text-muted mb-2">Este texto ainda não tem flashcards.</p>
             <form method="POST" action="{{ url_for('gerar_flashcards_do_texto', id=item.texto.id) }}" class="d-inline">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                 <button class="btn btn-sm btn-wissio-primary">
                     <i class="bi bi-magic me-1"></i>Gerar flashcards deste texto
                 </button>
