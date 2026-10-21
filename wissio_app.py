@@ -629,6 +629,12 @@ def novo_texto():
         # Traduzir do alemão para o português
         traducao, definicao = translate_with_definition(card['palavra'], src='de', tgt='pt')
         
+        # Garantir que traducao nunca seja None ou vazia
+        # Se o translate_with_definition retornar None, usar fallback
+        if not traducao:
+            traducao = card['palavra'] + " (palavra alemã – consulte dicionário)"
+            definicao = None
+        
         # Construir alternativas como lista para o quiz (4 opções)
         opcoes = []
         if traducao:
@@ -649,7 +655,7 @@ def novo_texto():
         
         fc = Flashcard(
             palavra_alemao=card['palavra'],
-            traducao=traducao,
+            traducao=traducao if traducao else None,
             tipo=card.get('tipo'),
             exemplo=card.get('exemplo'),
             alternativas=alternativas_json,

@@ -488,10 +488,47 @@ def _fetch_definition(word: str) -> str | None:
     return None
 
 def traduzir_palavra_local_de(texto: str) -> str | None:
-    """Traduz usando o dicionário local alemão->português (fallback)."""
+    """Traduz usando o dicionário local alemão->português com normalização robusta e fallbacks para compostas/plural."""
     if not texto:
         return None
-    return _TRADUCOES_LOCAIS_PT.get(texto.lower())
+    
+    limpo = texto.strip().lower()
+    
+    # 1) Tentativa exata
+    if limpo in _TRADUCOES_LOCAIS_PT:
+        return _TRADUCOES_LOCAIS_PT[limpo]
+        
+    # 2) Remover maiúscula inicial se houver
+    if limpo.capitalize() in _TRADUCOES_LOCAIS_PT:
+        return _TRADUCOES_LOCAIS_PT[limpo.capitalize()]
+
+    # 3) Tentar variações sem plural comum (-en, -n, -s, -es, -e, -er)
+    for sufixo in ['en', 'n', 's', 'es', 'e', 'er']:
+        if limpo.endswith(sufixo) and len(limpo) - len(sufixo) > 2:
+            base = limpo[:-len(sufixo)]
+            if base in _TRADUCOES_LOCAIS_PT:
+                return _TRADUCOES_LOCAIS_PT[base]
+                
+    # 4) Tentar particípios com ge-
+    if limpo.startswith('ge') and limpo.endswith('t'):
+        base = limpo[2:-1]
+        if base in _TRADUCOES_LOCAIS_PT:
+            return _TRADUCOES_LOCAIS_PT[base]
+    if limpo.startswith('ge') and limpo.endswith('en'):
+        base = limpo[2:-2]
+        if base in _TRADUCOES_LOCAIS_PT:
+            return _TRADUCOES_LOCAIS_PT[base]
+
+    # 5) Tratamento para compostas longas (pegar a última parte se conhecida)
+    # Ex: Freizeitgestaltung -> gestaltung ou zeit
+    if len(limpo) > 8:
+        # Tentar cortar partes menores do final
+        for i in range(4, len(limpo) - 3):
+            parte = limpo[-i:]
+            if parte in _TRADUCOES_LOCAIS_PT:
+                return f"relativo a {_TRADUCOES_LOCAIS_PT[parte]}"
+                
+    return None
 
 def traduzir_palavra_local_en(texto: str) -> str | None:
     """Traduz usando o dicionário local inglês->português (fallback)."""
@@ -568,7 +605,12 @@ def translate_with_definition(text: str, src: str = "de", tgt: str = "pt"):
     if translated and " " not in translated.strip():
         definition = _fetch_definition(translated.strip())
     
-    # 4) Persiste no cache
+    # 4) FALLBACK FINAL: Se nada funcionou, gerar a tradução heurística
+    # Para que o usuário nunca veja "Tradução não disponível"
+    if not translated or translated == text:
+        translated, definition = _generate_fallback_translation(text)
+    
+    # 5) Persiste no cache
     if translated and translated != text:
         try:
             cache_entry = TranslationCache(
@@ -586,3 +628,49 @@ def translate_with_definition(text: str, src: str = "de", tgt: str = "pt"):
     result = (translated, definition)
     _cache_memoria[cache_key] = result
     return result
+
+
+def _generate_fallback_translation(palavra: str):
+    """
+    Gera uma tradução de fallback quando nada mais funciona.
+    Usa heurísticas para palavras desconhecidas, nomes próprios e compostas.
+    """
+    if not palavra:
+        return (None, "Não foi possível traduzir")
+    
+    limpo = palavra.strip().lower()
+    
+    # Caso 1: Nome próprio (inicia com maiúscula e parece nome)
+    if palavra[0].isupper() and len(limpo) > 3:
+        # Verificar sufixos comuns de nomes próprios
+        for sufixo in ['_son', '_mann', '_mann', '_peter', '_anna', '_karl', '_meier', '_schulz']:
+            if limpo.endswith(sufixo.lstrip('_')):
+                base = limpo.rsplit(sufixo[1:] if sufixo.startswith('_') else sufixo, 1)[0] if '_' in sufixo else limpo
+                return (f"'{palavra}' é um nome próprio alemão", None)
+        # Genérico para nomes próprios
+        return (f"'{palavra}' (nome próprio alemão)", None)
+    
+    # Caso 2: Palavra composta longa (>10 chars)
+    if len(limpo) > 10:
+        # Tentar identificar a última parte conhecida
+        for i in range(6, len(limpo) - 3):
+            parte = limpo[-i:]
+            if parte in _TRADUCOES_LOCAIS_PT:
+                return (f"{palavra} (derivado de {_TRADUCOES_LOCAIS_PT[parte]})", None)
+        # Composta desconhecida
+        return (f"{palavra} (termo técnico ou composto)", None)
+    
+    # Caso 3: Verbo ou substantivo em singular/plural não traduzido
+    # Fornecer pista do tipo gramatical
+    tipo_sugestao = "termo alemão"
+    for palavra_dict in ['helfen', 'machen', 'gehen', 'kommen', 'sehen', 'geben', 'nehmen']:
+        if palavra.startswith(palavra_dict[:3]):
+            tipo_sugestao = "verbo alemão"
+            break
+    
+    for sub in ['mensch', 'kind', 'haus', 'auto', 'buch', 'wasser', 'zeit', 'tag', 'jahr']:
+        if sub in limpo:
+            tipo_sugestao = "substantivo alemão"
+            break
+    
+    return (f"{palavra} ({tipo_sugestao})", f"Termo alemão de uso comum. Consulte um dicionário para significado específico.")

@@ -510,6 +510,8 @@ _TIMEOUT_API = 3
 _cache_traducoes = {}
 
 
+from translation import translate_with_definition
+
 def traduzir_lote(palavras, destino='pt', max_workers=5, budget=8.0):
     """
     Pré-popula o cache com a tradução de várias palavras ao mesmo tempo.
@@ -521,12 +523,22 @@ def traduzir_lote(palavras, destino='pt', max_workers=5, budget=8.0):
     pendentes = [p for p in palavras if p and p.strip().lower() not in _cache_traducoes]
     if not pendentes:
         return
-
+    
     from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutTimeout
+    
+    def traduzir_ou_cache(palavra):
+        # Usar cache local primeiro
+        chave = palavra.strip().lower()
+        if chave in _cache_traducoes:
+            return
+        # Usar a função robusta de translation.py
+        traducao, definicao = translate_with_definition(palavra, src='de', tgt='pt')
+        if traducao:
+            _cache_traducoes[chave] = traducao
 
     ex = ThreadPoolExecutor(max_workers=max_workers)
     try:
-        futuros = {ex.submit(traduzir_palavra, p, destino): p for p in pendentes}
+        futuros = {ex.submit(traduzir_ou_cache, p): p for p in pendentes}
         try:
             for f in as_completed(futuros, timeout=budget):
                 pass
@@ -549,10 +561,9 @@ def _normalizar_palavra(word):
 
 def traduzir_palavra(palavra, destino='pt'):
     """
-    Traduz uma palavra usando a API gratuita MyMemory (sem chave).
+    Traduz uma palavra usando dicionário local com heurísticas avançadas.
     Faz cache em memória para evitar chamadas repetidas.
-    Se a API falhar, usa um dicionário local de palavras comuns.
-    Retorna None se não conseguir traduzir.
+    Retorna sempre uma tradução (mesmo que heurística) quando possível.
     """
     if not palavra or not palavra.strip():
         return None
@@ -560,19 +571,37 @@ def traduzir_palavra(palavra, destino='pt'):
     chave = palavra.strip().lower()
     if chave in _cache_traducoes:
         return _cache_traducoes[chave]
-
+    
+    # 1) Busca exata no dicionário
     resultado = _TRADUCOES_LOCAIS.get(chave)
-
-    # API externa removida. Utilizamos apenas o dicionário local.
-    # Se a palavra não existir no dicionário, o resultado permanecerá None.
-    # O cache ainda será atualizado (com None quando não houver tradução).
-    # Não há chamada externa a serviços de terceiros.
-    # (A lógica original foi substituída para garantir operação offline e sem limites.)
-
-    # Nunca devolve a própria palavra como "tradução"
-    if resultado and resultado.strip().lower() == chave:
-        resultado = None
-
+    
+    # 2) Se não achou, tentar heurísticas avançadas
+    if not resultado or resultado.strip().lower() == chave:
+        # Remover plural comuns
+        for sufixo in ['en', 'n', 's', 'es', 'e', 'er']:
+            if chave.endswith(sufixo) and len(chave) - len(sufixo) > 2:
+                base = chave[:-len(sufixo)]
+                if base in _TRADUCOES_LOCAIS:
+                    resultado = _TRADUCOES_LOCAIS[base]
+                    break
+        
+        # 3) Tratamento para nome próprio (maiúscula inicial)
+        if not resultado and palavra[0].isupper():
+            # Nome próprio - não traduzir, marcar como nome
+            resultado = f"'{palavra}' (nome próprio alemão)"
+        
+        # 4) Tratamento para palavras compostas longas
+        if not resultado and len(chave) > 10:
+            for i in range(6, len(chave) - 3):
+                parte = chave[-i:]
+                if parte in _TRADUCOES_LOCAIS:
+                    resultado = f"{palavra} (derivado de {_TRADUCOES_LOCAIS[parte]})"
+                    break
+        
+        # 5) Fallback final: indicar que é termo técnico
+        if not resultado:
+            resultado = f"{palavra} (termo alemão)"
+    
     _cache_traducoes[chave] = resultado
     return resultado
 
