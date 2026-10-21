@@ -88,9 +88,7 @@ from flask_wtf.csrf import generate_csrf, validate_csrf
 
 @app.context_processor
 def inject_globals():
-    user = None
-    if 'usuario_id' in session:
-        user = Usuario.query.get(session['usuario_id'])
+    user = get_current_user()
     csrf_token_value = generate_csrf() if app.config.get('WTF_CSRF_ENABLED', True) else ''
     return {
         'tema_escuro': session.get('tema_escuro', False),
@@ -111,11 +109,23 @@ def csrf_protected(f):
     return decorated
 
 
-# Decorador para login required
+# Decorador para login required e recuperação segura de usuário
+def get_current_user():
+    if 'usuario_id' not in session:
+        return None
+    user_id = session.get('usuario_id')
+    user = Usuario.query.get(user_id)
+    if not user:
+        # Sessão órfã (ex: banco de dados limpo no deploy)
+        session.clear()
+        return None
+    return user
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if 'usuario_id' not in session:
+        user = get_current_user()
+        if not user:
             flash('Por favor, faça login primeiro.', 'warning')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
