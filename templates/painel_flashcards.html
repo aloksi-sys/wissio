@@ -130,11 +130,14 @@
                             <span class="tipo-badge">{{ card.tipo }}</span>
                             {% endif %}
                         </div>
-                        {% if card.traducao %}
-                        <div class="traducao">{{ card.traducao }}</div>
-                        {% else %}
-                        <div class="traducao">sem tradução</div>
-                        {% endif %}
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if card.traducao %}
+                            <div class="traducao">{{ card.traducao }}</div>
+                            {% endif %}
+                            {% if card.definicao %}
+                            <small class="text-muted">{{ card.definicao }}</small>
+                            {% endif %}
+                        </div>
                         <div class="d-flex align-items-center gap-1 mt-2 flex-wrap">
                             {% if prog %}
                             <span class="estado-badge" style="background: var(--bs-secondary-bg); color: var(--bs-body-color);">
