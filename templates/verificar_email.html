@@ -9,23 +9,30 @@
                      style="width: 80px; height: 80px; background: var(--wissio-gold); color: var(--wissio-black);">
                     <i class="bi bi-envelope-check" style="font-size: 2.2rem;"></i>
                 </div>
-                <h2 class="fw-bold">Email Verificado!</h2>
-                <p class="text-muted">Seu e-mail <strong>{{ usuario.email if usuario else 'você' }}</strong> já está confirmado.</p>
+                <h2 class="fw-bold">Verifique seu E-mail</h2>
+                <p class="text-muted">Seu e-mail <strong>{{ user.email if user else '' }}</strong> precisa de verificação.</p>
             </div>
 
-            <div class="alert alert-success d-flex align-items-start">
-                <i class="bi bi-check-circle-fill me-2 mt-1"></i>
+            <div class="alert alert-warning d-flex align-items-start mb-4">
+                <i class="bi bi-info-circle-fill me-2 mt-1"></i>
                 <div>
-                    <strong>Pronto!</strong> Você tem acesso completo a todos os recursos do WISSIO.
+                    <strong>Como verificar:</strong>
+                    <ul class="mb-0 mt-1">
+                        <li>No ambiente de desenvolvimento, clique no botão abaixo para simular a verificação.</li>
+                        <li>Na produção, cole o token recebido por e-mail.</li>
+                    </ul>
                 </div>
             </div>
 
-            <div class="d-grid gap-2">
-                <a href="{{ url_for('home') }}" class="btn btn-wissio-primary">
+            <form method="POST">
+                <button type="submit" class="btn btn-wissio-primary w-100 btn-lg">
+                    <i class="bi bi-check-circle me-2"></i>Verificar E-mail
+                </button>
+            </form>
+
+            <div class="d-grid gap-2 mt-3">
+                <a href="{{ url_for('home') }}" class="btn btn-outline-secondary">
                     <i class="bi bi-house-door me-2"></i>Voltar ao painel
-                </a>
-                <a href="{{ url_for('biblioteca') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-book me-2"></i>Ir para a Biblioteca
                 </a>
             </div>
         </div>

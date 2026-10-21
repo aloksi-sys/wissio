@@ -224,7 +224,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     {% if session.get('usuario_id') %}
-                        {% if usuario and not usuario.email_verificado %}
+                        {% if not session.get('email_verificado') %}
                         <li class="nav-item">
                             <a class="nav-link fw-semibold" href="{{ url_for('verificar_email') }}"
                                style="color: var(--wissio-gold) !important;" title="Verificar e-mail">

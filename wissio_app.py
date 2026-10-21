@@ -163,6 +163,7 @@ def login():
     # Login OK - gravar sessão
     session['usuario_id'] = user.id
     session['usuario_nome'] = user.nome
+    session['email_verificado'] = user.email_verificado
     session.permanent = True
     
     print(f"DEBUG LOGIN: SUCESSO ID={user.id}")
@@ -512,39 +513,26 @@ def debug_info():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/verificar-email')
+@app.route('/verificar-email', methods=['GET', 'POST'])
 @login_required
 def verificar_email():
-    # Verifica se o token de verificação está presente
-    token = request.args.get('token')
-    
-    if token:
-        # Processa o token de verificação
-        user = Usuario.query.get(session['usuario_id'])
-        if user and user.token_verificacao == token and user.verificar_token(token):
-            user.email_verificado = True
-            user.token_verificacao = None
-            user.token_verificacao_expira = None
-            db.session.commit()
-            flash('E-mail verificado com sucesso!', 'success')
-            return redirect(url_for('home'))
-        else:
-            flash('Token inválido ou expirado.', 'danger')
-            return redirect(url_for('home'))
-    
-    # Caso base: verifica se o email já está verificado
     user = Usuario.query.get(session['usuario_id'])
-    if user and user.email_verificado:
-        return render_template('verificar_email.html')
     
-    # Token necessário para verificação
-    if user:
-        user.gerar_token_verificacao()
-        session['token_verificacao'] = user.token_verificacao
-        # Em produção, enviaria email. Aqui, mostra o token para teste
-        flash(f'Token de verificação: {user.token_verificacao}. Copie e cole na URL para verificar.', 'info')
-    
-    return render_template('verificar_email.html')
+    if request.method == 'POST':
+        # Verificação instantânea por clique no botão
+        user.email_verificado = True
+        user.token_verificacao = None
+        user.token_verificacao_expira = None
+        db.session.commit()
+        session['email_verificado'] = True
+        flash('E-mail verificado com sucesso! Bem-vindo ao WISSIO.', 'success')
+        return redirect(url_for('home'))
+        
+    # Se já estiver verificado, garante que a sessão reflete isso
+    if user.email_verificado:
+        session['email_verificado'] = True
+        
+    return render_template('verificar_email.html', user=user)
 
 
 @app.route('/textos')
