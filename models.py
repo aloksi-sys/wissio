@@ -139,6 +139,7 @@ class Flashcard(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     palavra_alemao = db.Column(db.String(100), nullable=False)
     traducao = db.Column(db.String(100), nullable=True)
+    definicao = db.Column(db.Text, nullable=True)  # Significado/explicação adicional
     # Classe gramatical (Substantivo, Verbo, Adjetivo...) — exibida no verso do cartão
     tipo = db.Column(db.String(40), nullable=True)
     exemplo = db.Column(db.Text, nullable=True)

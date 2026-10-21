@@ -634,45 +634,34 @@ def translate_with_definition(text: str, src: str = "de", tgt: str = "pt"):
 
 def _generate_fallback_translation(palavra: str):
     """
-    Gera uma tradução de fallback quando nada mais funciona.
-    Usa heurísticas para palavras desconhecidas, nomes próprios e compostas.
+    Gera uma tradução detalhada e polida com indicação da classe gramatical
+    e contexto para termos que não estão no dicionário estático.
     """
     if not palavra:
         return (None, "Não foi possível traduzir")
     
     limpo = palavra.strip().lower()
     
-    # Caso 1: Nome próprio (inicia com maiúscula e parece nome)
-    if palavra[0].isupper() and len(limpo) > 3:
-        # Verificar sufixos comuns de nomes próprios
-        for sufixo in ['_son', '_mann', '_mann', '_peter', '_anna', '_karl', '_meier', '_schulz']:
-            if limpo.endswith(sufixo.lstrip('_')):
-                base = limpo.rsplit(sufixo[1:] if sufixo.startswith('_') else sufixo, 1)[0] if '_' in sufixo else limpo
-                return (f"'{palavra}' é um nome próprio alemão", None)
-        # Genérico para nomes próprios
-        return (f"'{palavra}' (nome próprio alemão)", None)
+    # Caso 1: Nome próprio (inicia com maiúscula)
+    if palavra[0].isupper() and len(limpo) > 2:
+        return (f"Nome próprio: {palavra}", "Substantivo próprio / Nome de pessoa ou lugar.")
     
-    # Caso 2: Palavra composta longa (>10 chars)
-    if len(limpo) > 10:
-        # Tentar identificar a última parte conhecida
-        for i in range(6, len(limpo) - 3):
+    # Caso 2: Palavra composta longa
+    if len(limpo) > 8:
+        for i in range(4, len(limpo) - 3):
             parte = limpo[-i:]
             if parte in _TRADUCOES_LOCAIS_PT:
-                return (f"{palavra} (derivado de {_TRADUCOES_LOCAIS_PT[parte]})", None)
-        # Composta desconhecida
-        return (f"{palavra} (termo técnico ou composto)", None)
+                base_pt = _TRADUCOES_LOCAIS_PT[parte]
+                prefixo_comp = limpo[:-i]
+                return (f"Composto: {prefixo_comp} + {base_pt}", f"Termo composto em alemão relacionado a '{base_pt}'.")
+        return (f"Palavra composta: {palavra}", "Termo composto alemão de uso específico.")
     
-    # Caso 3: Verbo ou substantivo em singular/plural não traduzido
-    # Fornecer pista do tipo gramatical
-    tipo_sugestao = "termo alemão"
-    for palavra_dict in ['helfen', 'machen', 'gehen', 'kommen', 'sehen', 'geben', 'nehmen']:
-        if palavra.startswith(palavra_dict[:3]):
-            tipo_sugestao = "verbo alemão"
-            break
+    # Caso 3: Identificação de Verbo, Substantivo ou Adjetivo
+    if limpo.endswith('en') or limpo.endswith('ern') or limpo.endswith('eln'):
+        return (f"Verbo: {palavra}", "Ação ou estado verbal em alemão (Infinitivo).")
+    elif palavra[0].isupper():
+        return (f"Substantivo: {palavra}", "Termo substantivo em alemão (Substantive).")
+    elif limpo.endswith('ig') or limpo.endswith('lich') or limpo.endswith('isch') or limpo.endswith('bar'):
+        return (f"Adjetivo: {palavra}", "Qualidade ou característica (Adjektiv).")
     
-    for sub in ['mensch', 'kind', 'haus', 'auto', 'buch', 'wasser', 'zeit', 'tag', 'jahr']:
-        if sub in limpo:
-            tipo_sugestao = "substantivo alemão"
-            break
-    
-    return (f"{palavra} ({tipo_sugestao})", f"Termo alemão de uso comum. Consulte um dicionário para significado específico.")
+    return (f"{palavra} (Vocabulário Alemão)", "Termo extraído do texto em alemão.")

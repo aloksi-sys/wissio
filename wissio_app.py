@@ -656,6 +656,7 @@ def novo_texto():
         fc = Flashcard(
             palavra_alemao=card['palavra'],
             traducao=traducao if traducao else None,
+            definicao=definicao,
             tipo=card.get('tipo'),
             exemplo=card.get('exemplo'),
             alternativas=alternativas_json,
@@ -1075,6 +1076,7 @@ def gerar_flashcards_do_texto(id):
         fc = Flashcard(
             palavra_alemao=card['palavra'],
             traducao=traducao,
+            definicao=definicao,
             tipo=card.get('tipo'),
             exemplo=card.get('exemplo'),
             alternativas=alternativas_json,

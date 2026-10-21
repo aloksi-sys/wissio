@@ -301,6 +301,7 @@
         "id": {{ item.flashcard.id }},
         "palavra": {{ item.flashcard.palavra_alemao|tojson }},
         "traducao": {{ item.flashcard.traducao|tojson }},
+        "definicao": {{ (item.flashcard.definicao or "")|tojson }},
         "tipo": {{ (item.flashcard.tipo or "Vocabulário")|tojson }},
         "exemplo": {{ item.flashcard.exemplo|tojson }},
         "alternativas": {{ item.alternativas|tojson }},
@@ -413,12 +414,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // VERSO
         document.getElementById('verso-tipo').textContent = item.tipo;
+        const traducaoDiv = document.getElementById('verso-traducao-conteudo');
         if (item.traducao) {
-            document.getElementById('verso-traducao-conteudo').innerHTML =
-                `<div class="traducao-grande">${escaparHtml(item.traducao)}</div>`;
+            traducaoDiv.innerHTML = `<div class="traducao-grande">${escaparHtml(item.traducao)}</div>`;
+            if (item.definicao) {
+                traducaoDiv.innerHTML += `<div class="mt-2 text-muted small">${escaparHtml(item.definicao)}</div>`;
+            }
         } else {
-            document.getElementById('verso-traducao-conteudo').innerHTML =
-                '<div class="sem-traducao text-center">Tradução não disponível — lembre-se pelo contexto.</div>';
+            traducaoDiv.innerHTML =
+                '<div class="sem-traducao text-center">Lembre-se pelo contexto do texto.</div>';
         }
         // Renderizar alternativas (se houver) e adicionar listener
         const altDiv = document.getElementById('verso-alternativas');
