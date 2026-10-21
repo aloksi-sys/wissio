@@ -196,7 +196,13 @@ class ProgressoFlashcard(db.Model):
     @property
     def pendente(self):
         """True quando nunca foi estudado ou quando a revisão já venceu."""
-        return self.next_review is None or self.next_review <= datetime.now(timezone.utc)
+        if self.next_review is None:
+            return True
+        rev = self.next_review
+        now = datetime.now(timezone.utc)
+        if rev.tzinfo is None:
+            rev = rev.replace(tzinfo=timezone.utc)
+        return rev <= now
     
     __table_args__ = (db.UniqueConstraint('usuario_id', 'flashcard_id', name='uq_usuario_flashcard'),)
 
