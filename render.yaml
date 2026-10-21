@@ -16,15 +16,13 @@ services:
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
-    startCommand: flask db upgrade && gunicorn app:app
+    startCommand: ./entrypoint.sh
     envVars:
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
-        generateValue: true
-      # Configure DATABASE_URL manualmente no painel do Render com a URI do Supabase
-      # Exemplo: postgresql://postgres:[SENHA]@db.[PROJECT].supabase.co:5432/postgres
-      - key: DATABASE_URL
-        sync: false
+        value: chave_secreta_wissio_2026
+      - key: SQLALCHEMY_DATABASE_URI
+        value: sqlite:///wissio.db
     healthCheckPath: /
     autoDeploy: true
