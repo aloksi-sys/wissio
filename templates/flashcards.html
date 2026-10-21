@@ -139,7 +139,7 @@
                           style="background: var(--wissio-gold); color: var(--wissio-black); font-weight: 600;">
                         <i class="bi bi-lightning-charge me-1"></i><span id="qtd-xp">0</span> XP
                     </span>
-                    <button class="btn btn-sm btn-outline-secondary" id="btn-misturar">
+                    <button class="btn btn-outline-secondary btn-sm" id="btn-misturar">
                         <i class="bi bi-shuffle me-1"></i>Misturar
                     </button>
                 </div>
@@ -322,6 +322,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let baralho = JSON.parse(raw.textContent || '[]');
     if (baralho.length === 0) return;
 
+    // Armazena o total original para a barra de progresso
+    const totalCardsOriginal = baralho.length;
+
     const elCartao       = document.getElementById('cartao');
     const dicaFsrs       = document.getElementById('dica-fsrs');
     const barra          = document.getElementById('barra-progresso');
@@ -370,11 +373,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function atualizarContadores() {
-        const total = fila.length;
+        const total = totalCardsOriginal;
+        const progresso = total > 0 ? Math.round((indice / total) * 100) : 0;
         document.getElementById('card-atual').textContent = Math.min(indice + 1, total);
         document.getElementById('card-total').textContent = total;
         document.getElementById('qtd-xp').textContent = xp;
-        barra.style.width = `${Math.round((indice / total) * 100)}%`;
+        barra.style.width = `${Math.min(progresso, 100)}%`;
         document.getElementById('n-novo').textContent = fila.slice(indice).filter(c => c.estado === 'Novo').length;
         document.getElementById('n-revisao').textContent = fila.slice(indice).filter(c => c.estado !== 'Novo').length;
     }
@@ -411,15 +415,17 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('verso-tipo').textContent = item.tipo;
         if (item.traducao) {
             document.getElementById('verso-traducao-conteudo').innerHTML =
-                `<div class="traducao-grande" id="verso-traducao">${escaparHtml(item.traducao)}</div>`;
+                `<div class="traducao-grande">${escaparHtml(item.traducao)}</div>`;
         } else {
             document.getElementById('verso-traducao-conteudo').innerHTML =
                 '<div class="sem-traducao text-center">Tradução não disponível — lembre-se pelo contexto.</div>';
         }
         // Renderizar alternativas (se houver) e adicionar listener
+        const altDiv = document.getElementById('verso-alternativas');
         if (Array.isArray(item.alternativas) && item.alternativas.length) {
-            const altDiv = document.getElementById('verso-alternativas');
-            altDiv.innerHTML = item.alternativas.map(a => `<button class="btn btn-outline-primary btn-sm m-1" data-alt="${escaparHtml(a)}">${escaparHtml(a)}</button>`).join('');
+            altDiv.innerHTML = item.alternativas.map(a => 
+                `<button class="btn btn-outline-primary btn-sm m-1" data-alt="${escaparHtml(a)}">${escaparHtml(a)}</button>`
+            ).join('');
             // Listener para registrar escolha e avaliar FSRS
             altDiv.querySelectorAll('button').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -442,7 +448,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             });
         } else {
-            document.getElementById('verso-alternativas').innerHTML = '';
+            altDiv.innerHTML = '';
         }
 
         const badgeEstado = document.getElementById('verso-estado');
