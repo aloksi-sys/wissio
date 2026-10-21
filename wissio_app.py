@@ -226,7 +226,7 @@ def biblioteca():
 
 @app.route('/flashcards')
 @login_required
-def flashcards_all():
+def flashcards():
     user = Usuario.query.get(session['usuario_id'])
     flashcards = Flashcard.query.filter_by(usuario_id=user.id).all()
     return render_template('flashcards.html', flashcards=flashcards)
