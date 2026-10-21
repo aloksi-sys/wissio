@@ -256,3 +256,14 @@ def obter_dica_aleatoria():
         "Use cartões de memória para revisão espaçada.",
     ]
     return jsonify({'dica': random.choice(dicas)})
+
+@app.route('/toggle-tema', methods=['POST'])
+@login_required
+def toggle_tema():
+    """Alterna entre tema claro e escuro, persistindo no usuário"""
+    usuario = get_current_user()
+    if usuario:
+        usuario.tema_escuro = not usuario.tema_escuro
+        db.session.commit()
+        return jsonify({'success': True, 'tema_escuro': usuario.tema_escuro})
+    return jsonify({'success': False}), 400
