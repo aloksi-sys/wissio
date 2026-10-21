@@ -65,6 +65,12 @@ def get_current_user():
         return None
     return Usuario.query.get(session['user_id'])
 
+# Context processor to inject tema_escuro into all templates
+@app.context_processor
+def inject_tema_escuro():
+    user = get_current_user()
+    return dict(tema_escuro=user.tema_escuro if user else False)
+
 # ---------- ROTAS DE AUTENTICAÇÃO ----------
 @app.route('/')
 def index():
@@ -267,3 +273,13 @@ def toggle_tema():
         db.session.commit()
         return jsonify({'success': True, 'tema_escuro': usuario.tema_escuro})
     return jsonify({'success': False}), 400
+
+# Error handler 500 - sempre retorna uma página amigável
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('erro.html', error=str(error)), 500
+
+# Error handler 404
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('erro.html', error='Página não encontrada'), 404
