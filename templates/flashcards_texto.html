@@ -14,7 +14,7 @@
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="badge bg-primary fs-6 px-3 py-2">{{ cards_data|length }} cards</span>
             <form method="POST" action="{{ url_for('gerar_flashcards_do_texto', id=texto.id) }}" class="d-inline">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                 <button class="btn btn-sm btn-outline-warning" title="Extrai novos vocabulários deste texto">
                     <i class="bi bi-magic me-1"></i>Gerar mais
                 </button>

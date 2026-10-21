@@ -5,12 +5,17 @@ services:
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
+      pip cache purge || true
     envVars:
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
-        value: chave_secreta_wissio_2026
-      - key: SQLALCHEMY_DATABASE_URI
-        value: sqlite:///wissio.db
+        value: "wissio-secret-key-2026-production-secure-hash"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      # NOTA: NÃO definir DATABASE_URL - Render injeta automaticamente com Supabase
+      # O código limpa DATABASE_URL antes de inicializar o SQLAlchemy
     healthCheckPath: /
     autoDeploy: true
+    plan: free
+    region: oregon

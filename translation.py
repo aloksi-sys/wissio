@@ -1,4 +1,5 @@
 import requests
+import sys
 import json
 from datetime import datetime
 from models import TranslationCache, db
@@ -12,16 +13,21 @@ def _normalize(text: str) -> str:
     return " ".join(text.strip().split())
 
 def _fetch_translation(text: str, src: str = "pt", tgt: str = "en") -> str:
-    payload = {
-        "q": text,
-        "source": src,
-        "target": tgt,
-        "format": "text"
-    }
-    resp = requests.post(LIBRETRANSLATE_URL, json=payload, timeout=10)
-    resp.raise_for_status()
-    data = resp.json()
-    return data.get("translatedText", "")
+    try:
+        payload = {
+            "q": text,
+            "source": src,
+            "target": tgt,
+            "format": "text"
+        }
+        resp = requests.post(LIBRETRANSLATE_URL, json=payload, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("translatedText", "")
+    except Exception as e:
+        print(f"DEBUG TRANSLATE: Erro no LibreTranslate: {e}")
+        sys.stdout.flush()
+        return ""  # Fallback: retornar vazio se falhar
 
 def _fetch_definition(word: str) -> str | None:
     resp = requests.get(f"{DICTIONARY_API_URL}{word.lower()}", timeout=10)

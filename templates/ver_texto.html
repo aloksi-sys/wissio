@@ -35,7 +35,7 @@
             <h5 class="text-secondary mb-3">Complete os espaços em branco com a segunda metade das palavras:</h5>
             
             <form method="POST" action="{{ url_for('submeter_ctest', id=texto.id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                 
                 <div style="font-size: 1.15rem; line-height: 2;" class="font-monospace">
                     {% set ctest_words = (texto.ctest_conteudo or '').split() %}

@@ -59,7 +59,7 @@
                             <div class="card-body">
                                 <form method="POST" action="{{ url_for('perfil') }}">
                                     <input type="hidden" name="acao" value="atualizar_perfil">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                                     
                                     <div class="row g-3">
                                         <div class="col-md-6">
@@ -109,7 +109,7 @@
                             <div class="card-body">
                                 <form method="POST" action="{{ url_for('perfil') }}">
                                     <input type="hidden" name="acao" value="atualizar_metas">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                                     
                                     <div class="row g-3">
                                         <div class="col-md-4">
@@ -142,7 +142,7 @@
                             <div class="card-body">
                                 <form method="POST" action="{{ url_for('perfil') }}">
                                     <input type="hidden" name="acao" value="alterar_senha">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                                     
                                     <div class="row g-3">
                                         <div class="col-md-6">

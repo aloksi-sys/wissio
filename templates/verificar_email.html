@@ -22,9 +22,9 @@
             </div>
 
             <div class="d-grid gap-2">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <form id="csrf-form" style="display:none;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 </form>
 <button class="btn btn-wissio-primary" id="btn-gerar" onclick="gerarLink()">
                     <i class="bi bi-send me-2"></i>Gerar link de verificação
@@ -68,7 +68,7 @@ async function gerarLink() {
         const response = await fetch('{{ url_for("enviar_verificacao_email") }}', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'csrf_token={{ csrf_token() }}'
+            body: 'csrf_token=' + encodeURIComponent(document.querySelector('input[name="csrf_token"]').value)
         });
         const data = await response.json();
 
