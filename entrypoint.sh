@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+unset DATABASE_URL
 
 echo "=== INICIANDO ENTRYPOINT ==="
 
