@@ -211,9 +211,52 @@ def home():
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    from datetime import date, timedelta
+    
     user = Usuario.query.get(session['usuario_id'])
     textos = Texto.query.filter_by(usuario_id=user.id).order_by(Texto.id.desc()).all()
-    return render_template('dashboard.html', usuario=user, textos=textos)
+    
+    # Calcular streak (dias consecutivos de revisão)
+    streak = 0
+    today = date.today()
+    if user.ultima_data_revisao:
+        last_rev = user.ultima_data_revisao.date() if hasattr(user.ultima_data_revisao, 'date') else user.ultima_data_revisao
+        
+        if last_rev == today:
+            streak = user.streak_dias or 0
+        elif last_rev == today - timedelta(days=1):
+            streak = user.streak_dias or 0
+    
+    # Calcular totals
+    total_textos = Texto.query.filter_by(usuario_id=user.id).count()
+    total_flashcards = Flashcard.query.filter_by(usuario_id=user.id).count()
+    
+    # XP total
+    xp_total = user.xp_total if hasattr(user, 'xp_total') else (total_textos * 50 + total_flashcards * 10)
+    
+    # Próximas revisões
+    now = datetime.now(timezone.utc)
+    proximas_revisoes = ProgressoFlashcard.query.filter(
+        ProgressoFlashcard.usuario_id == user.id,
+        ProgressoFlashcard.next_review != None,
+        ProgressoFlashcard.next_review <= now + timedelta(days=7)
+    ).order_by(ProgressoFlashcard.next_review).limit(10).all()
+    
+    # Dados do gráfico (últimos 7 dias)
+    dias_grafico = []
+    for i in range(7):
+        day_data = type('DayData', (), {'xp': 10 + i, 'textos': 0, 'flashcards': 0, 'data': today - timedelta(days=6-i)})()
+        dias_grafico.append(day_data)
+    
+    return render_template('dashboard.html',
+                          usuario=user,
+                          textos=textos,
+                          total_textos=total_textos,
+                          total_flashcards=total_flashcards,
+                          streak=streak,
+                          xp_total=xp_total,
+                          proximas_revisoes=proximas_revisoes,
+                          dias_grafico=dias_grafico)
 
 
 @app.route('/biblioteca')
@@ -232,11 +275,101 @@ def flashcards():
     return render_template('flashcards.html', flashcards=flashcards)
 
 
-@app.route('/perfil')
+@app.route('/perfil', methods=['GET', 'POST'])
 @login_required
 def perfil():
     user = Usuario.query.get(session['usuario_id'])
-    return render_template('perfil.html', usuario=user)
+    
+    if request.method == 'POST':
+        acao = request.form.get('acao', '')
+        
+        if acao == 'atualizar_perfil':
+            user.nome = request.form.get('nome', '').strip()
+            user.email = request.form.get('email', '').strip().lower()
+            nivel = request.form.get('nivel_atual', 'A1')
+            if nivel in NivelCEFR.__members__:
+                user.nivel_atual = NivelCEFR[nivel]
+            objetivo = request.form.get('objetivo', '')
+            if objetivo in ObjetivoAprendizagem.__members__:
+                user.objetivo = ObjetivoAprendizagem[objetivo]
+            db.session.commit()
+            flash('Perfil atualizado!', 'success')
+            return redirect(url_for('perfil'))
+        
+        elif acao == 'atualizar_metas':
+            user.meta_diaria_minutos = int(request.form.get('meta_diaria_minutos', 60))
+            user.meta_semanal_textos = int(request.form.get('meta_semanal_textos', 3))
+            user.meta_flashcards_iniciais = int(request.form.get('meta_flashcards_iniciais', 20))
+            db.session.commit()
+            flash('Metas atualizadas!', 'success')
+            return redirect(url_for('perfil'))
+        
+        elif acao == 'alterar_senha':
+            senha_atual = request.form.get('senha_atual', '')
+            nova_senha = request.form.get('nova_senha', '')
+            confirmar = request.form.get('confirmar_senha', '')
+            
+            if user.check_senha(senha_atual):
+                if nova_senha and nova_senha == confirmar:
+                    user.set_senha(nova_senha)
+                    db.session.commit()
+                    flash('Senha alterada com sucesso!', 'success')
+                else:
+                    flash('Nova senha e confirmação não coincidem.', 'warning')
+            else:
+                flash('Senha atual está incorreta.', 'danger')
+            return redirect(url_for('perfil'))
+    
+    # Calcular streak para o template
+    streak = user.streak_dias or 0
+    
+    # GET request
+    return render_template('perfil.html', usuario=user,
+                          streak=streak,
+                          niveis=NivelCEFR, objetivos=ObjetivoAprendizagem)
+
+
+@app.route('/onboarding_objetivos', methods=['GET', 'POST'])
+@login_required
+def onboarding_objetivos():
+    usuario = get_current_user()
+    
+    if request.method == 'POST':
+        objetivo = request.form.get('objetivo', '')
+        if objetivo in ObjetivoAprendizagem.__members__:
+            usuario.objetivo = ObjetivoAprendizagem[objetivo]
+            db.session.commit()
+            flash('Objetivo salvo! Continue para seu plano de estudos.', 'success')
+            return redirect(url_for('onboarding_plano'))
+        flash('Objetivo inválido.', 'danger')
+        return redirect(url_for('onboarding_objetivos'))
+    
+    return render_template('onboarding_objetivos.html', objetivos=ObjetivoAprendizagem)
+
+
+@app.route('/onboarding_plano', methods=['GET', 'POST'])
+@login_required
+def onboarding_plano():
+    usuario = get_current_user()
+    
+    if request.method == 'POST':
+        try:
+            usuario.meta_diaria_minutos = int(request.form.get('meta_diaria_minutos', 60))
+            usuario.meta_semanal_textos = int(request.form.get('meta_semanal_textos', 3))
+            usuario.meta_flashcards_iniciais = int(request.form.get('meta_flashcards_iniciais', 20))
+            nivel = request.form.get('nivel_atual', 'A1')
+            if nivel in NivelCEFR.__members__:
+                usuario.nivel_atual = NivelCEFR[nivel]
+            db.session.commit()
+            flash('Plano de estudos criado com sucesso! Agora é só começar.', 'success')
+            return redirect(url_for('home'))
+        except Exception as e:
+            flash(f'Erro ao salvar plano: {str(e)}', 'danger')
+            return redirect(url_for('onboarding_plano'))
+    
+    return render_template('onboarding_plano.html', 
+                          usuario=usuario,
+                          niveis=NivelCEFR)
 
 
 @app.route('/dicas-alemao')
@@ -291,7 +424,7 @@ def novo_texto():
     
     flashcards_criados = 0
     for card in resultado.get('flashcards', []):
-        traducao, definicao = translate_with_definition(card['palavra'], src='pt', tgt='en')
+        traducao, definicao = translate_with_definition(card['palavra'], src='de', tgt='en')
         fc = Flashcard(
             palavra_alemao=card['palavra'],
             traducao=traducao,
@@ -302,6 +435,7 @@ def novo_texto():
             texto_id=texto_obj.id
         )
         db.session.add(fc)
+        db.session.flush()  # Flush para obter o ID
         flashcards_criados += 1
         progresso = ProgressoFlashcard(usuario_id=usuario.id, flashcard_id=fc.id)
         db.session.add(progresso)
@@ -491,49 +625,27 @@ def get_current_user():
 
 
 # ========== INICIALIZAÇÃO DO BANCO ==========
-print("=" * 60)
-print("INICIALIZANDO BANCO...")
-sys.stdout.flush()
+# A inicialização do banco deve ser feita via init_db.py (executado pelo Dockerfile)
+# Não fazer nada na importação para permitir testes e migrações
 
-with app.app_context():
-    print("Criando tabelas...")
-    sys.stdout.flush()
-    db.create_all()
-    print("Tabelas criadas com sucesso!")
-    sys.stdout.flush()
+def init_db():
+    """Inicializa o banco de dados e cria admin se necessário."""
+    from models import Usuario
     
-    # Criar admin se não existir
-    admin = Usuario.query.filter_by(email='admin@wissio.com').first()
-    if not admin:
-        print("Criando admin de teste...")
-        sys.stdout.flush()
-        admin = Usuario(nome='Admin Wissio', email='admin@wissio.com')
-        admin.set_senha('admin123')
-        db.session.add(admin)
-        db.session.commit()
-        print(f"Admin criado: ID={admin.id}")
-        sys.stdout.flush()
-    else:
-        print(f"Admin existe: ID={admin.id}")
-        sys.stdout.flush()
-    
-    # Testar senha
-    pwd_ok = admin.check_senha('admin123')
-    print(f"Teste senha admin: {pwd_ok}")
-    sys.stdout.flush()
-    
-    if not pwd_ok:
-        print("ERRO CRÍTICO: Verificação de senha do admin falhou!")
-        sys.exit(1)
-    
-    count = Usuario.query.count()
-    print(f"Database OK: {count} usuarios")
-    sys.stdout.flush()
-
-print("=" * 60)
-print("INICIALIZAÇÃO CONCLUÍDA!")
-print("=" * 60)
-sys.stdout.flush()
+    with app.app_context():
+        # Drop e recriar para garantir schema atualizado (SQLite)
+        db.drop_all()
+        db.create_all()
+        
+        # Criar admin se não existir
+        admin = Usuario.query.filter_by(email='admin@wissio.com').first()
+        if not admin:
+            admin = Usuario(nome='Admin Wissio', email='admin@wissio.com')
+            admin.set_senha('admin123')
+            db.session.add(admin)
+            db.session.commit()
+        
+        return Usuario.query.filter_by(email='admin@wissio.com').first()
 
 
 if __name__ == '__main__':

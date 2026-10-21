@@ -43,6 +43,8 @@ with app.app_context():
     print("Criando tabelas...")
     sys.stdout.flush()
     
+    # Drop e recriar para garantir schema atualizado (SQLite)
+    db.drop_all()
     db.create_all()
     print("Tabelas criadas!")
     

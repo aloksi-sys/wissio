@@ -33,8 +33,8 @@ class Usuario(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     senha_hash = db.Column(db.String(255), nullable=False)
-    objetivo = db.Column(db.Enum(ObjetivoAprendizagem), nullable=True, values_callable=_valores_enum)
-    nivel_atual = db.Column(db.Enum(NivelCEFR), default=NivelCEFR.A1, values_callable=_valores_enum)
+    objetivo = db.Column(db.Enum(ObjetivoAprendizagem), nullable=True)
+    nivel_atual = db.Column(db.Enum(NivelCEFR), default=NivelCEFR.A1)
     meta_diaria_minutos = db.Column(db.Integer, default=5)
     meta_semanal_textos = db.Column(db.Integer, default=3)
     meta_flashcards_iniciais = db.Column(db.Integer, default=20)
@@ -43,6 +43,12 @@ class Usuario(db.Model):
     token_verificacao = db.Column(db.String(100), nullable=True)
     token_verificacao_expira = db.Column(db.DateTime, nullable=True)
     tema_escuro = db.Column(db.Boolean, default=False)  # Preferência de tema
+    
+    # Campos adicionais para funcionalidades completas
+    streak_dias = db.Column(db.Integer, default=0)  # Dia consecutivo de revisão
+    ultima_data_revisao = db.Column(db.DateTime, nullable=True)  # Última data de revisão
+    xp_total = db.Column(db.Integer, default=0)  # Total de XP ganho
+    
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
@@ -97,7 +103,7 @@ class Texto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     titulo = db.Column(db.String(150), nullable=False)
     conteudo_original = db.Column(db.Text, nullable=False)
-    nivel = db.Column(db.Enum(NivelCEFR), nullable=False, values_callable=_valores_enum)
+    nivel = db.Column(db.Enum(NivelCEFR), nullable=False)
     ctest_conteudo = db.Column(db.Text, nullable=True)
     # Palavras completas de cada lacuna do C-Test, na ordem (fonte da verdade da correção)
     ctest_respostas = db.Column(db.JSON, nullable=True)
