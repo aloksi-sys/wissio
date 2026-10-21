@@ -2,51 +2,126 @@
 
 {% block content %}
 <div class="container mb-5">
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label mb-1">Filtrar por Nível</label>
+                    <select name="nivel" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos os Níveis</option>
+                        {% for nivel in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] %}
+                        <option value="{{ nivel }}" {% if filtro_nivel == nivel %}selected{% endif %}>{{ nivel }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <a href="{{ url_for('dicas_alemao') }}" class="btn btn-outline-secondary" title="Limpar filtros">
+                        <i class="bi bi-x-circle"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="mb-1"><i class="bi bi-lightbulb text-warning me-2"></i>Dicas de Alemão</h2>
-            <p class="text-muted mb-0">Aprenda macetes e regras essenciais para acelerar seu aprendizado</p>
+            <h2 class="mb-1 fw-bold"><i class="bi bi-lightbulb text-warning me-2"></i>Dicas de Alemão</h2>
+            <p class="text-muted mb-0">{{ dicas|length }} dica{% if dicas|length != 1 %}s{% endif %} encontradas</p>
         </div>
         <button class="btn btn-outline-primary" onclick="location.reload()">
-            <i class="bi bi-arrow-clockwise me-1"></i>Novas Dicas
+            <i class="bi bi-arrow-clockwise me-1"></i>Atualizar
         </button>
     </div>
 
     <div class="row g-4">
         {% for dica in dicas %}
         <div class="col-md-6 col-lg-4">
-            <div class="card tip-card h-100 shadow-sm">
+            <div class="card tip-card h-100 shadow-sm border-primary">
                 <div class="card-body d-flex flex-column">
-                    <div class="tip-icon mb-3">
-                        <svg width="32" height="32" fill="currentColor" class="text-warning" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+                    <!-- Cabeçalho com Badge de Nível -->
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="badge {% if dica.nivel in ['A1', 'A2'] %}bg-success{% elif dica.nivel == 'B1' %}bg-info{% elif dica.nivel == 'B2' %}bg-primary{% else %}bg-purple{% endif %} fs-6">
+                            {{ dica.nivel }}
+                        </span>
+                        <span class="badge bg-secondary text-uppercase" style="font-size: .7rem;">
+                            {{ dica.categoria }}
+                        </span>
                     </div>
-                    <h5 class="card-title fw-bold">{{ dica.titulo }}</h5>
-                    <p class="card-text text-muted small flex-grow-1">{{ dica.conteudo }}</p>
+                    
+                    <h5 class="card-title fw-bold mb-2">{{ dica.titulo|truncate(40) }}</h5>
+                    
+                    <p class="card-text text-muted small flex-grow-1 mb-3">{{ dica.resumo }}</p>
+                    
+                    <!-- Exemplo em alemão -->
+                    <div class="bg-light p-2 rounded mb-2" style="font-size: 0.95rem;">
+                        <strong>DE:</strong> {{ dica.exemplo_alemao }}
+                    </div>
+                    
+                    <!-- Exemplo em português -->
+                    <div class="mb-3">
+                        <small class="text-muted">PT:</small>
+                        <span class="ms-1">{{ dica.exemplo_portugues }}</span>
+                    </div>
+                    
+                    <!-- Botão para detalhes -->
+                    <button class="btn btn-outline-primary btn-sm mt-auto" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#detalhesModal{{ loop.index }}">
+                        <i class="bi bi-info-circle me-1"></i>Ver detalhes
+                    </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Modal de Detalhes -->
+        <div class="modal fade" id="detalhesModal{{ loop.index }}" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ dica.titulo }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-muted mb-2">Exemplo em Alemão</h6>
+                                <div class="alert alert-secondary mb-3">
+                                    <code style="font-size: 1.1rem;">{{ dica.exemplo_alemao }}</code>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-muted mb-2">Tradução</h6>
+                                <div class="alert alert-info mb-3">
+                                    {{ dica.exemplo_portugues }}
+                                </div>
+                            </div>
+                        </div>
+                        <h6 class="text-muted mb-2">Explicação Detalhada</h6>
+                        <div class="card">
+                            <div class="card-body" style="font-size: 0.95rem;">
+                                <p class="mb-2">{{ dica.detalhes|safe }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- Estado Vazio -->
+        <div class="col-12">
+            <div class="card p-5 text-center" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
+                <div style="font-size: 3rem;" class="mb-3">🔍</div>
+                <h3 class="fw-bold">Nenhuma dica encontrada</h3>
+                <p class="text-muted mb-4">
+                    Tente remover os filtros ou consultar outros recursos da plataforma.
+                </p>
+                <a href="{{ url_for('dicas_alemao') }}" class="btn btn-wissio-primary">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Mostrar todas as dicas
+                </a>
             </div>
         </div>
         {% endfor %}
     </div>
-
-    <!-- Card de acesso rápido -->
-    <div class="card mt-4 border-0 bg-light">
-        <div class="card-body">
-            <div class="d-flex align-items-center">
-                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 56px; height: 56px;">
-                    <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
-                </div>
-                <div>
-                    <h5 class="mb-1">Quer mais dicas?</h5>
-                    <p class="text-muted mb-0">Clique no botão acima para carregar 5 dicas aleatórias diferentes. Estude um pouco por dia!</p>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
-
-<style>
-.tip-card { border: none; transition: all 0.2s; }
-.tip-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.1) !important; }
-.tip-card .card-title { font-size: 1.1rem; }
-</style>
 {% endblock %}

@@ -11,6 +11,12 @@ import random
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
+# Importar dados estruturados de dicas de alemão
+try:
+    from dicas_data import DICAS_ALEMAO
+except ImportError:
+    DICAS_ALEMAO = []
+
 # DEBUG: Check environment BEFORE any imports
 print("=" * 60)
 print("INICIALIZANDO WISSIO (Flask)")
@@ -471,14 +477,31 @@ def onboarding_plano():
 
 @app.route('/dicas-alemao')
 def dicas_alemao():
-    dicas = [
-        {'titulo': 'Aprenda as Preposições', 'conteudo': 'As preposições em alemão: in, an, auf, bei, für, mit. Use-as corretamente para expressar localização, tempo e relações.', 'categoria': 'gramatica'},
-        {'titulo': 'Declínios de Artigos', 'conteudo': 'O alemão tem artigos definidos e indefinidos que mudam conforme o gênero, número e caso.', 'categoria': 'vocabulario'},
-        {'titulo': 'Verbos Essenciais', 'conteudo': 'sein (ser/estar), haben (ter), werden (futuro), können (poder), müssen (dever).', 'categoria': 'verbo'},
-        {'titulo': 'Acentuação Gráfica', 'conteudo': 'O trema (ä, ö, ü) indica modificação da vogal. O eszeleto (ß) substitui "ss".', 'categoria': 'pronuncia'},
-        {'titulo': 'Conjunções', 'conteudo': 'Und, oder, aber, denn, weil, obwohl conectam ideias e mudam o verbo para o fim.', 'categoria': 'gramatica'},
-    ]
-    return render_template('dicas_alemao.html', dicas=dicas, total_dicas=len(dicas))
+    """
+    Rota para exibir dicas de alemão com filtros por nível CEFR.
+    """
+    # Obter filtros da query string
+    filtro_nivel = request.args.get('nivel', '').upper()
+    filtro_categoria = request.args.get('categoria', '').lower()
+    
+    # Filter dicas
+    dicas_filtradas = DICAS_ALEMAO.copy()
+    
+    if filtro_nivel and filtro_nivel in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']:
+        dicas_filtradas = [d for d in dicas_filtradas if d.get('nivel') == filtro_nivel]
+    
+    if filtro_categoria:
+        dicas_filtradas = [d for d in dicas_filtradas if d.get('categoria', '').lower() == filtro_categoria]
+    
+    # Categorias únicas para filtro
+    categorias = sorted(set(d.get('categoria', 'outros') for d in DICAS_ALEMAO))
+    
+    return render_template('dicas_alemao.html', 
+                          dicas=dicas_filtradas, 
+                          total_dicas=len(dicas_filtradas),
+                          categorias=categorias,
+                          filtro_nivel=filtro_nivel,
+                          filtro_categoria=filtro_categoria)
 
 
 @app.route('/debug-info')
