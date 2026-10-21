@@ -1,13 +1,6 @@
-# Configuração de Deploy no Render (gratuito)
-# 
-# IMPORTANTE: O PostgreSQL do Render Free expira em 90 dias.
-# Para custo zero permanente, use Supabase (https://supabase.com) para o banco.
-#
-# Passos:
-# 1. Crie conta no Supabase -> New Project -> copie a Connection String (URI)
-# 2. No Render, crie Web Service conectado a este repo
-# 3. Configure as Environment Variables abaixo
-# 4. Deploy!
+# Configuração de Deploy no Render - SQLite ONLY
+# NENHUMA referência a Supabase ou PostgreSQL aqui
+# O banco é totalmente local em wissio.db dentro do container
 
 services:
   - type: web

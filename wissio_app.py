@@ -8,7 +8,6 @@ from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort
 from flask_wtf.csrf import CSRFProtect
-from flask_migrate import Migrate
 
 from models import db, Usuario, Texto, Flashcard, ProgressoFlashcard, CTestSubmissao, EstatisticaDiaria, NivelCEFR, ObjetivoAprendizagem, RespostaFlashcard
 from processador import processar_texto_alemao
@@ -39,7 +38,6 @@ csrf = CSRFProtect(app)
 csrf.init_app(app)
 
 db.init_app(app)
-migrate = Migrate(app, db)
 
 # CSRF protection for API endpoints – require token via header (or skip for GET)
 def csrf_protect(f):
@@ -251,13 +249,10 @@ def gerar_flashcards_do_texto(id):
 # ---------- ROTAS API ----------
 @app.route('/api/dica-aleatoria', methods=['GET'])
 def obter_dica_aleatoria():
-    # Exemplo de endpoint simples que retorna um dado aleatório (pode ser usado pelo front‑end)
+    # Exemplo de endpoint simples que retorna um dado aleatório (pode ser usado pelo front-end)
     dicas = [
         "Pratique todos os dias!",
         "Reveja palavras que errou.",
         "Use cartões de memória para revisão espaçada.",
     ]
     return jsonify({'dica': random.choice(dicas)})
-
-print('FINAL DB URI:', app.config.get('SQLALCHEMY_DATABASE_URI'))
-# app.run(host='0.0.0.0', port=5000, debug=False)
