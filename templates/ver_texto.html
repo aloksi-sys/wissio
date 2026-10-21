@@ -17,11 +17,13 @@
                 <i class="bi bi-file-text me-1"></i>Texto Original
             </button>
         </li>
+        {% if texto.ctest_conteudo %}
         <li class="nav-item">
             <button class="nav-link fw-bold text-danger" id="ctest-tab" data-bs-toggle="tab" data-bs-target="#ctest" type="button">
                 <i class="bi bi-pencil-square me-1"></i>C-Test
             </button>
         </li>
+        {% endif %}
     </ul>
 
     <div class="tab-content" id="textoTabContent">
@@ -30,12 +32,13 @@
             <p style="font-size: 1.15rem; line-height: 1.8; white-space: pre-line;">{{ texto.conteudo_original }}</p>
         </div>
 
+        {% if texto.ctest_conteudo %}
         <!-- Aba C-Test -->
         <div class="tab-pane fade p-4 rounded shadow-sm" id="ctest" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
             <h5 class="text-secondary mb-3">Complete os espaços em branco com a segunda metade das palavras:</h5>
             
-            <form method="POST" action="{{ url_for('submeter_ctest', id=texto.id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
+            <form method="POST" action="/submeter_ctest" id="form-ctext">
+                <input type="hidden" name="id" value="{{ texto.id }}"/>
                 
                 <div style="font-size: 1.15rem; line-height: 2;" class="font-monospace">
                     {% set ctest_words = (texto.ctest_conteudo or '').split() %}
@@ -59,6 +62,7 @@
                 </div>
             </form>
         </div>
+        {% endif %}
     </div>
 
     <!-- Flashcards Gerados a partir deste Texto -->
@@ -83,12 +87,23 @@
                         {% if card.traducao %}
                         <p class="card-text"><strong>Tradução:</strong> {{ card.traducao }}</p>
                         {% endif %}
+                        {% if card.exemplo %}
                         <p class="card-text text-muted small"><em>Exemplo: "{{ card.exemplo }}"</em></p>
+                        {% endif %}
                     </div>
                 </div>
             </div>
             {% else %}
-            <p class="text-muted">Nenhum flashcard gerado automaticamente.</p>
+            <div class="col-12">
+                <div class="card p-4 text-center" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
+                    <p class="text-muted mb-3">Nenhum flashcard gerado automaticamente.</p>
+                    <form method="POST" action="{{ url_for('gerar_flashcards_do_texto', id=texto.id) }}">
+                        <button class="btn btn-wissio-primary">
+                            <i class="bi bi-magic me-2"></i>Gerar flashcards deste texto
+                        </button>
+                    </form>
+                </div>
+            </div>
             {% endfor %}
         </div>
     </div>

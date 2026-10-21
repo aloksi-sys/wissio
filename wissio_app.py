@@ -17,17 +17,19 @@ print("INICIALIZANDO WISSIO (Flask)")
 print("=" * 60)
 sys.stdout.flush()
 
-# PASSO CRÍTICO: Limpar DATABASE_URL ANTES de qualquer importação
-# Render injeta DATABASE_URL automaticamente com informações do Supabase
-if 'DATABASE_URL' in os.environ:
-    db_url_val = os.environ.get('DATABASE_URL', '')
-    print(f"DATABASE_URL injetado pelo Render, removendo: {db_url_val[:60]}...")
-    sys.stdout.flush()
-    del os.environ['DATABASE_URL']
+# PASSO CRÍTICO: Configuração do banco de dados (Suporta SQLite e PostgreSQL/Supabase)
+db_url = os.environ.get('DATABASE_URL')
+# No Render, DATABASE_URL pode começar com postgres://, SQLAlchemy requer postgresql://
+if db_url and db_url.startswith('postgres://'):
+    db_url = db_url.replace('postgres://', 'postgresql://', 1)
 
-os.environ.pop('DATABASE_URL', None)
+# Se DATABASE_URL não estiver presente, ou se USE_SQLITE for True, usa SQLite
+if not db_url or os.environ.get('USE_SQLITE', 'false').lower() == 'true':
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///wissio.db?check_same_thread=False'
+else:
+    SQLALCHEMY_DATABASE_URI = db_url
 
-print(f"DATABASE_URL após limpeza: {os.environ.get('DATABASE_URL', 'NÃO EXISTE')}")
+print(f"Banco de dados configurado: {SQLALCHEMY_DATABASE_URI[:30]}...")
 sys.stdout.flush()
 
 # Configuraçõesantes de importar Flask
@@ -38,10 +40,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # Criar app
 app = Flask(__name__)
 
-# Configurações - SQLite forçado
-# Usar chave secreta fixa para consistência entre requests
+# Configurações
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'wissio-render-secret-key-2026-secure-32chars')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///wissio.db?check_same_thread=False'
+app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Configurações de sessão - ESSENCIAIS para funcionamento
@@ -50,7 +51,8 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Evita problemas CORS
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 horas
 
-# CSRF desabilitado (problema com login)
+# CSRF pode ser habilitado quando SMTP configurado
+# Por enquanto, desabilitado para funcionamento estável
 app.config['WTF_CSRF_ENABLED'] = False
 app.config['WTF_CSRF_TIME_LIMIT'] = None
 
@@ -69,17 +71,38 @@ db.init_app(app)
 # Close db session after request
 @app.teardown_appcontext
 def shutdown_session(exception=None):
-    db.session.remove()
+    try:
+        db.session.remove()
+    except Exception:
+        pass
 
 
-# Context processor - MUITO SIMPLES sem queries
+# Context processor - Injeta usuário logado e token CSRF em todos os templates
+from flask_wtf.csrf import generate_csrf, validate_csrf
+
 @app.context_processor
 def inject_globals():
-    """Injeta variáveis em todos os templates - SEM DATABASE QUERIES."""
+    user = None
+    if 'usuario_id' in session:
+        user = Usuario.query.get(session['usuario_id'])
+    csrf_token_value = generate_csrf() if app.config.get('WTF_CSRF_ENABLED', True) else ''
     return {
         'tema_escuro': session.get('tema_escuro', False),
-        'csrf_token': ''
+        'usuario': user,
+        'csrf_token': csrf_token_value
     }
+
+
+# Decoraor para CSRF em rotas AJAX
+def csrf_protected(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if request.method == 'POST':
+            token = request.form.get('csrf_token') or request.headers.get('X-CSRFToken')
+            if not token or not validate_csrf(token):
+                return jsonify({'error': 'CSRF token inválido'}), 400
+        return f(*args, **kwargs)
+    return decorated
 
 
 # Decorador para login required
@@ -146,6 +169,8 @@ def login():
     sys.stdout.flush()
     
     flash('Login realizado com sucesso!', 'success')
+    if not user.onboarding_concluido:
+        return redirect(url_for('onboarding_objetivos'))
     return redirect(url_for('home'))
 
 
@@ -154,6 +179,55 @@ def logout():
     session.clear()
     flash('Logout realizado.', 'info')
     return redirect(url_for('index'))
+
+
+@app.route('/esqueci-senha', methods=['GET', 'POST'])
+def esqueci_senha():
+    if request.method == 'GET':
+        return render_template('esqueci_senha.html')
+    
+    email = request.form.get('email', '').strip().lower()
+    user = Usuario.query.filter_by(email=email).first()
+    
+    if user:
+        user.gerar_token_reset()
+        token = user.token_reset_senha
+        reset_url = url_for('redefinir_senha', token=token, _external=True)
+        # Fallback para desenvolvimento / log se envio de e-mail falhar
+        print(f"PASSWORD RESET LINK PARA {email}: {reset_url}")
+        sys.stdout.flush()
+        flash('Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha.', 'info')
+    else:
+        flash('Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha.', 'info')
+        
+    return redirect(url_for('login'))
+
+
+@app.route('/redefinir-senha/<token>', methods=['GET', 'POST'])
+def redefinir_senha(token):
+    user = Usuario.query.filter_by(token_reset_senha=token).first()
+    
+    if not user or not user.verificar_token_reset(token):
+        flash('Token de redefinição inválido ou expirado.', 'danger')
+        return redirect(url_for('login'))
+        
+    if request.method == 'GET':
+        return render_template('redefinir_senha.html', token=token)
+        
+    senha = request.form.get('senha', '')
+    confirmar_senha = request.form.get('confirmar_senha', '')
+    
+    if not senha or senha != confirmar_senha:
+        flash('As senhas não coincidem ou estão vazias.', 'warning')
+        return redirect(url_for('redefinir_senha', token=token))
+        
+    user.set_senha(senha)
+    user.token_reset_senha = None
+    user.token_reset_expira = None
+    db.session.commit()
+    
+    flash('Senha redefinida com sucesso! Faça login com sua nova senha.', 'success')
+    return redirect(url_for('login'))
 
 
 @app.route('/cadastro', methods=['GET', 'POST'])
@@ -272,7 +346,27 @@ def biblioteca():
 def flashcards():
     user = Usuario.query.get(session['usuario_id'])
     flashcards = Flashcard.query.filter_by(usuario_id=user.id).all()
-    return render_template('flashcards.html', flashcards=flashcards)
+    
+    # Preparar dados para o template
+    cards_data = []
+    for fc in flashcards:
+        try:
+            alternativas = json.loads(fc.alternativas) if fc.alternativas else []
+            alternativas_lista = list(alternativas.values()) if isinstance(alternativas, dict) else (alternativas if isinstance(alternativas, list) else [])
+        except:
+            alternativas_lista = []
+        
+        progresso = ProgressoFlashcard.query.filter_by(
+            usuario_id=user.id, flashcard_id=fc.id
+        ).first()
+        
+        cards_data.append({
+            'flashcard': fc,
+            'progresso': progresso,
+            'alternativas': alternativas_lista
+        })
+    
+    return render_template('flashcards.html', cards_data=cards_data)
 
 
 @app.route('/perfil', methods=['GET', 'POST'])
@@ -360,8 +454,10 @@ def onboarding_plano():
             nivel = request.form.get('nivel_atual', 'A1')
             if nivel in NivelCEFR.__members__:
                 usuario.nivel_atual = NivelCEFR[nivel]
+            usuario.onboarding_concluido = True
             db.session.commit()
             flash('Plano de estudos criado com sucesso! Agora é só começar.', 'success')
+            session.pop('_onboarding_complete', None)
             return redirect(url_for('home'))
         except Exception as e:
             flash(f'Erro ao salvar plano: {str(e)}', 'danger')
@@ -424,20 +520,40 @@ def novo_texto():
     
     flashcards_criados = 0
     for card in resultado.get('flashcards', []):
-        traducao, definicao = translate_with_definition(card['palavra'], src='de', tgt='en')
+        # Traduzir do alemão para o português
+        traducao, definicao = translate_with_definition(card['palavra'], src='de', tgt='pt')
+        
+        # Construir alternativas como lista para o quiz (4 opções)
+        opcoes = []
+        if traducao:
+            opcoes.append(traducao)
+        
+        # Adicionar outras palavras do texto como distratores
+        palavras_outros = [f['palavra'] for f in resultado.get('flashcards', []) 
+                          if f['palavra'].lower() != card['palavra'].lower()]
+        palavras_outros = [p for p in palavras_outros if p not in opcoes][:3]
+        opcoes.extend(palavras_outros)
+        
+        # Limitar a 4 opções e embaralhar
+        random.shuffle(opcoes)
+        opcoes = opcoes[:4]
+        
+        # Salvar alternativas como JSON (lista de strings)
+        alternativas_json = json.dumps(opcoes)
+        
         fc = Flashcard(
             palavra_alemao=card['palavra'],
             traducao=traducao,
             tipo=card.get('tipo'),
             exemplo=card.get('exemplo'),
-            alternativas=json.dumps({"definicao": definicao} if definicao else {}),
+            alternativas=alternativas_json,
             usuario_id=usuario.id,
             texto_id=texto_obj.id
         )
         db.session.add(fc)
         db.session.flush()  # Flush para obter o ID
         flashcards_criados += 1
-        progresso = ProgressoFlashcard(usuario_id=usuario.id, flashcard_id=fc.id)
+        progresso = ProgressoFlashcard(usuario_id=usuario.id, flashcard_id=fc.id, stability=1.0, difficulty=5.0, next_review=datetime.now(timezone.utc))
         db.session.add(progresso)
     
     db.session.commit()
@@ -457,10 +573,13 @@ def flashcards_do_texto(id):
     
     cards_data = []
     for fc in flashcards:
+        # Alternativas já é uma lista JSON (de opções de múltipla escolha)
         try:
-            alternativas = json.loads(fc.alternativas) if fc.alternativas else {}
+            alternativas = json.loads(fc.alternativas) if fc.alternativas else []
+            if not isinstance(alternativas, list):
+                alternativas = []
         except:
-            alternativas = {}
+            alternativas = []
         
         progresso = ProgressoFlashcard.query.filter_by(
             usuario_id=user.id, flashcard_id=fc.id
@@ -469,7 +588,7 @@ def flashcards_do_texto(id):
         cards_data.append({
             'flashcard': fc,
             'progresso': progresso,
-            'alternativas': list(alternativas.values()) if alternativas else []
+            'alternativas': alternativas
         })
     
     return render_template('flashcards.html', cards_data=cards_data, texto=texto, modo_texto= texto)
@@ -576,15 +695,288 @@ def ver_texto(id):
     texto = Texto.query.get_or_404(id)
     if texto.usuario_id != session.get('usuario_id'):
         abort(403)
+    
+    # Gerar conteúdo C-Test se não existir (remover futuramente quando processador salvar)
+    if not texto.ctest_conteudo:
+        palavras = (texto.conteudo_original or '').split()
+        palavras_ctest = []
+        respostas_ctest = []
+        contador = 0
+        for p in palavras:
+            if len(p) > 3:
+                contador += 1
+                if contador % 2 == 0:
+                    metade = len(p) // 2
+                    palavras_ctest.append(p[:metade] + "____")
+                    respostas_ctest.append(p)
+                else:
+                    palavras_ctest.append(p)
+            else:
+                palavras_ctest.append(p)
+        texto.ctest_conteudo = " ".join(palavras_ctest)
+        texto.ctest_respostas = respostas_ctest
+        db.session.commit()
+    
     return render_template('ver_texto.html', texto=texto)
+
+
+@app.route('/submeter_ctest', methods=['POST'])
+@login_required
+def submeter_ctest():
+    """
+    Endpoint para submissão do C-Test.
+    Recebe o ID do texto via formulario e corriger as respostas.
+    """
+    try:
+        from models import CTestSubmissao
+        
+        # Obter ID do texto - pode vir de 'id' ou do path
+        texto_id = request.form.get('id') or request.view_args.get('id')
+        
+        if not texto_id:
+            flash('Texto não especificado.', 'danger')
+            return redirect(url_for('biblioteca'))
+        
+        texto = Texto.query.get_or_404(int(texto_id))
+        if texto.usuario_id != session.get('usuario_id'):
+            abort(403)
+        
+        # Coletar respostas do formulario
+        respostas_usuario = {}
+        for key, value in request.form.items():
+            if key.startswith('gap_'):
+                gap_num = int(key.replace('gap_', ''))
+                respostas_usuario[gap_num] = value.strip()
+        
+        # Obter respostas corretas do banco
+        respostas_corretas = texto.ctest_respostas or []
+        
+        # Calcular resultado
+        resultado = {}
+        acertos = 0
+        total = len(respostas_corretas)
+        
+        for i, resposta_correta in enumerate(respostas_corretas, 1):
+            resposta_user = respostas_usuario.get(i, '')
+            correta = resposta_user.lower() == resposta_correta.lower()
+            if correta:
+                acertos += 1
+            resultado[str(i)] = {
+                'correta': correta,
+                'esperada': resposta_correta,
+                'usuario': resposta_user
+            }
+        
+        percentual = (acertos / total * 100) if total > 0 else 0
+        xp_ganho = int(percentual * 5)
+        
+        # Salvar submissao
+        submissao = CTestSubmissao(
+            usuario_id=session['usuario_id'],
+            texto_id=texto.id,
+            respostas=respostas_usuario,
+            resultado=resultado,
+            acertos=acertos,
+            total=total,
+            percentual=percentual,
+            xp_ganho=xp_ganho
+        )
+        db.session.add(submissao)
+        
+        # Atualizar estatisticas do usuario
+        usuario = Usuario.query.get(session['usuario_id'])
+        if hasattr(usuario, 'xp_total'):
+            usuario.xp_total = (usuario.xp_total or 0) + xp_ganho
+        db.session.commit()
+        
+        flash(f'C-Test concluído! Acertos: {acertos}/{total} ({percentual:.0f}%) - +{xp_ganho} XP', 'success')
+        return redirect(url_for('ver_texto', id=texto.id))
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao processar C-Test: {str(e)}', 'danger')
+        return redirect(url_for('biblioteca'))
+
+
+@app.route('/api/ctest-submit', methods=['POST'])
+@login_required
+def api_ctest_submit():
+    """Endpoint alternativo para submissao de C-Test via API."""
+    try:
+        from models import CTestSubmissao
+        data = request.get_json() or request.form
+        texto_id = data.get('id') or data.get('texto_id')
+        
+        if not texto_id:
+            return jsonify({'error': 'Texto não especificado'}), 400
+        
+        texto = Texto.query.get_or_404(int(texto_id))
+        if texto.usuario_id != session.get('usuario_id'):
+            return jsonify({'error': 'Acesso negado'}), 403
+        
+        respostas_usuario = {}
+        respostas_corretas = texto.ctest_respostas or []
+        
+        for key, value in data.items():
+            if key.startswith('gap_'):
+                gap_num = int(key.replace('gap_', ''))
+                respostas_usuario[gap_num] = value.strip()
+        
+        resultado = {}
+        acertos = 0
+        total = len(respostas_corretas)
+        
+        for i, resposta_correta in enumerate(respostas_corretas, 1):
+            resposta_user = respostas_usuario.get(i, '')
+            correta = resposta_user.lower() == resposta_correta.lower()
+            if correta:
+                acertos += 1
+            resultado[str(i)] = {
+                'correta': correta,
+                'esperada': resposta_correta,
+                'usuario': resposta_user
+            }
+        
+        percentual = (acertos / total * 100) if total > 0 else 0
+        xp_ganho = int(percentual * 5)
+        
+        submissao = CTestSubmissao(
+            usuario_id=session['usuario_id'],
+            texto_id=texto.id,
+            respostas=respostas_usuario,
+            resultado=resultado,
+            acertos=acertos,
+            total=total,
+            percentual=percentual,
+            xp_ganho=xp_ganho
+        )
+        db.session.add(submissao)
+        
+        usuario = Usuario.query.get(session['usuario_id'])
+        if hasattr(usuario, 'xp_total'):
+            usuario.xp_total = (usuario.xp_total or 0) + xp_ganho
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'acertos': acertos,
+            'total': total,
+            'percentual': percentual,
+            'xp_ganho': xp_ganho
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/painel-flashcards')
 @login_required
 def painel_flashcards():
     user = Usuario.query.get(session['usuario_id'])
-    flashcards = Flashcard.query.filter_by(usuario_id=user.id).all()
-    return render_template('painel_flashcards.html', flashcards=flashcards)
+    textos = Texto.query.filter_by(usuario_id=user.id).all()
+    
+    # Construir estrutura esperada pelo template
+    painel = []
+    total_cards = 0
+    total_pendentes = 0
+    
+    for texto in textos:
+        cards = Flashcard.query.filter_by(texto_id=texto.id, usuario_id=user.id).all()
+        if not cards:
+            continue
+            
+        progressos = {}
+        pendentes = 0
+        
+        for card in cards:
+            prog = ProgressoFlashcard.query.filter_by(
+                usuario_id=user.id, flashcard_id=card.id
+            ).first()
+            progressos[card.id] = prog
+            
+            if not prog or not prog.next_review or prog.next_review <= datetime.now(timezone.utc):
+                pendentes += 1
+        
+        total_cards += len(cards)
+        total_pendentes += pendentes
+        
+        painel.append({
+            'texto': texto,
+            'cards': cards,
+            'progressos': progressos,
+            'pendentes': pendentes
+        })
+    
+    return render_template('painel_flashcards.html', 
+                          painel=painel,
+                          total_cards=total_cards,
+                          total_pendentes=total_pendentes)
+
+
+@app.route('/texto/<int:id>/gerar-flashcards', methods=['POST'])
+@login_required
+def gerar_flashcards_do_texto(id):
+    from processador import processar_texto_alemao
+    
+    texto = Texto.query.get_or_404(id)
+    if texto.usuario_id != session.get('usuario_id'):
+        abort(403)
+    
+    # Processar o texto para extrair flashcards
+    resultado = processar_texto_alemao(texto.conteudo_original)
+    
+    # Limpar flashcards existentes e criar novos
+    Flashcard.query.filter_by(texto_id=texto.id, usuario_id=session['usuario_id']).delete()
+    
+    usuario = get_current_user()
+    flashcards_criados = 0
+    
+    # Coletar todas as palavras para criar distratores
+    todas_palavras = [f['palavra'] for f in resultado.get('flashcards', [])]
+    
+    for card in resultado.get('flashcards', []):
+        traducao, definicao = translate_with_definition(card['palavra'], src='de', tgt='pt')
+        
+        # Construir alternativas (4 opções de múltipla escolha)
+        opcoes = []
+        if traducao:
+            opcoes.append(traducao)
+        
+        # Adicionar outras palavras como distratores
+        distratores = [p for p in todas_palavras if p != card['palavra']][:3]
+        opcoes.extend(distratores)
+        
+        # Limitar a 4 opções e embaralhar
+        random.shuffle(opcoes)
+        opcoes = opcoes[:4]
+        
+        alternativas_json = json.dumps(opcoes)
+        
+        fc = Flashcard(
+            palavra_alemao=card['palavra'],
+            traducao=traducao,
+            tipo=card.get('tipo'),
+            exemplo=card.get('exemplo'),
+            alternativas=alternativas_json,
+            usuario_id=usuario.id,
+            texto_id=texto.id
+        )
+        db.session.add(fc)
+        db.session.flush()
+        flashcards_criados += 1
+        
+        # Criar progresso inicial com next_review definido
+        progresso = ProgressoFlashcard(usuario_id=usuario.id, flashcard_id=fc.id, stability=1.0, difficulty=5.0, next_review=datetime.now(timezone.utc))
+        db.session.add(progresso)
+    
+    # Atualizar ctest_conteudo e ctest_respostas se não existirem
+    if not texto.ctest_conteudo and 'ctest' in resultado:
+        texto.ctest_conteudo = resultado['ctest']
+        texto.ctest_respostas = resultado.get('ctest_respostas', [])
+    
+    db.session.commit()
+    
+    flash(f'Flashcards gerados com sucesso! {flashcards_criados} novos cartões.', 'success')
+    return redirect(url_for('ver_texto', id=id))
 
 
 @app.route('/api/dica-aleatoria', methods=['GET'])

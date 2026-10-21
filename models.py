@@ -44,6 +44,10 @@ class Usuario(db.Model):
     token_verificacao_expira = db.Column(db.DateTime, nullable=True)
     tema_escuro = db.Column(db.Boolean, default=False)  # Preferência de tema
     
+    # Campos para recuperação de senha
+    token_reset_senha = db.Column(db.String(100), nullable=True)
+    token_reset_expira = db.Column(db.DateTime, nullable=True)
+    
     # Campos adicionais para funcionalidades completas
     streak_dias = db.Column(db.Integer, default=0)  # Dia consecutivo de revisão
     ultima_data_revisao = db.Column(db.DateTime, nullable=True)  # Última data de revisão
@@ -77,6 +81,19 @@ class Usuario(db.Model):
         if self.token_verificacao == token and self.token_verificacao_expira:
             exp = self.token_verificacao_expira
             # Se o valor armazenado no banco não tem informação de timezone, assume UTC
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            return datetime.now(timezone.utc) < exp
+        return False
+
+    def gerar_token_reset(self):
+        self.token_reset_senha = secrets.token_urlsafe(32)
+        self.token_reset_expira = datetime.now(timezone.utc) + timedelta(hours=2)
+        db.session.commit()
+
+    def verificar_token_reset(self, token):
+        if self.token_reset_senha == token and self.token_reset_expira:
+            exp = self.token_reset_expira
             if exp.tzinfo is None:
                 exp = exp.replace(tzinfo=timezone.utc)
             return datetime.now(timezone.utc) < exp

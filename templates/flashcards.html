@@ -306,7 +306,7 @@
         "traducao": {{ item.flashcard.traducao|tojson }},
         "tipo": {{ (item.flashcard.tipo or "Vocabulário")|tojson }},
         "exemplo": {{ item.flashcard.exemplo|tojson }},
-        "alternativas": {{ (item.flashcard.alternativas or [])|tojson }},
+        "alternativas": {{ item.alternativas|tojson }},
         "origem": {{ (item.flashcard.texto.titulo if item.flashcard.texto else "Texto")|tojson }},
         "estado": {{ item.progresso.state_label|tojson }},
         "reps": {{ item.progresso.reps }},

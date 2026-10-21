@@ -1,21 +1,67 @@
 # Python
 __pycache__/
 *.py[cod]
-# Virtual environment
-venv/
-.env
-# Instance folder (SQLite DB)
-instance/
-# Distribution / build
+*$py.class
+*.so
+.Python
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
 *.egg-info/
-# OS files
-.DS_Store
-Thumbs.db
-# IDE / editor
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
+
+# Database
+*.db
+wissio.db
+instance/
+
 # Logs
 *.log
-# Misc
-*.sqlite3
+logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Flask
+.instance/
+.webassets-cache
+
+# Coverage
+htmlcov/
+.coverage
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/

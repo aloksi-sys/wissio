@@ -8,6 +8,7 @@
             <p class="text-center text-muted mb-4">Comece sua jornada no alemão gratuitamente</p>
             
             <form method="POST" action="{{ url_for('cadastro') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                 <div class="mb-3">
                     <label class="form-label">Nome Completo</label>
                     <input type="text" name="nome" class="form-control" required placeholder="Digite seu nome" value="{{ request.form.nome if request.form.nome else '' }}">
