@@ -470,22 +470,46 @@ def onboarding_plano():
 
 @app.route('/dicas-alemao')
 def dicas_alemao():
-    # Lista de dicas de alemão
     dicas = [
-        {'titulo': 'Aprenda as Preposições', 'conteudo': 'As preposições ingles: in, on, at, by, for, with têm equivalentes no alemão: in, an, auf, bei, für, mit. Use-as corretamente para expressar localização, tempo e relações.', 'categoria': 'gramatica'},
-        {'titulo': 'Declínios de Artigos', 'conteudo': 'O alemão tem artigos definidos e indefinidos que mudam conforme o gênero, número e caso da palavra que acompanham. Mas, Einen, Eine, Ein, and Eine foram os artigos mais comuns.', 'categoria': 'vocabulario'},
-        {'titulo': 'Padrão de Concordância', 'conteudo': 'No alemão, os adjetivos concordam em gênero, número e caso com o artigo. Use a tabela de declinação para determinar a forma correta.', 'categoria': 'gramatica'},
-        {'titulo': 'Pronomes Pessoais', 'conteudo': 'Ich, Du, Er/Sie/Es, Wir, Ihr, Sie são os pronomes pessoais. Note que "Sie" (você formal) usa a mesma forma para plural e 3ª pessoa do singular.', 'categoria': 'vocabulario'},
-        {'titulo': 'Verbos Essenciais', 'conteudo': 'sein (ser/estar), haben (ter), werden (futuro), können (poder), müssen (dever), sollen (dever), mögen (gostar). Dominar esses verbos é fundamental.', 'categoria': 'verbo'},
-        {'titulo': 'Acentuação Gráfica', 'conteudo': 'Em alemão, acentos gráficos são raros: o trema (ä, ö, ü) indica palavras diferentes (bât → bato). O eszeleto (ß) substitui "ss" em palavras longas.', 'categoria': 'pronuncia'},
-        {'titulo': 'Pergunta com "W" ', 'conteudo': 'Werp, Warum, Wie, Wo, Wen, Was são palavras interrogativas comuns. Combine-as com verbos em posição correta (segundo elemento após sujeito).', 'categoria': 'gramatica'},
-        {'titulo': 'Formação do Futuro', 'conteudo': 'O futuro se forma com "werden" + infinitivo: ich werde lesen, du wirst lesen. Também pode-se usar "halten" para ações contínuas: ich halte das Neuigkeiten auf dem Laufen.', 'categoria': 'tempo'},
-        {'titulo': 'Números Cardinales', 'conteudo': 'Eins, zwei, drei, vier, fünf, sechs, sieben, acht, neun, zehn. Para maiores, use tausend (1.000) e million (1.000.000).', 'categoria': 'numeros'},
-        {'titulo': 'Conjunções', 'conteudo': 'Und, oder, aber, denn, sondern, weil, obwohl, wenn, falls, während, nachdem são conjunções essenciais para conectar ideias.', 'categoria': 'gramatica'},
-        {'titulo': 'Conjugação do Verbo', 'conteudo': 'O verbo principal vem no final da oração (Trennbild). Em frases declarativas: Subjekat + Hilfsverb + Partizip II. Em interrogativas: Verb + Subjekat.', 'categoria': 'verbo'},
-        {'titulo': 'Artigos Definidos', 'conteudo': 'Der (masculino), Die (feminino), Das (neutro) são artigos definidos. Lembre-se da regra: der-die-das para artigo definido e ein-eine-ein para indefinido.', 'categoria': 'vocabulario'},
+        {'titulo': 'Aprenda as Preposições', 'conteudo': 'As preposições em alemão: in, an, auf, bei, für, mit. Use-as corretamente para expressar localização, tempo e relações.', 'categoria': 'gramatica'},
+        {'titulo': 'Declínios de Artigos', 'conteudo': 'O alemão tem artigos definidos e indefinidos que mudam conforme o gênero, número e caso.', 'categoria': 'vocabulario'},
+        {'titulo': 'Verbos Essenciais', 'conteudo': 'sein (ser/estar), haben (ter), werden (futuro), können (poder), müssen (dever).', 'categoria': 'verbo'},
+        {'titulo': 'Acentuação Gráfica', 'conteudo': 'O trema (ä, ö, ü) indica modificação da vogal. O eszeleto (ß) substitui "ss".', 'categoria': 'pronuncia'},
+        {'titulo': 'Conjunções', 'conteudo': 'Und, oder, aber, denn, weil, obwohl conectam ideias e mudam o verbo para o fim.', 'categoria': 'gramatica'},
     ]
     return render_template('dicas_alemao.html', dicas=dicas, total_dicas=len(dicas))
+
+
+@app.route('/debug-info')
+def debug_info():
+    """Endpoint de diagnóstico para Render."""
+    try:
+        import sys
+        import os
+        import platform
+        
+        info = {
+            "python_version": sys.version,
+            "platform": platform.platform(),
+            "working_directory": os.getcwd(),
+            "session": dict(session),
+            "database_uri": str(app.config.get('SQLALCHEMY_DATABASE_URI')),
+            "csrf_enabled": app.config.get('WTF_CSRF_ENABLED'),
+            "routes": [rule.rule for rule in app.url_map.iter_rules() if 'painel' in str(rule) or 'dicas' in str(rule)]
+        }
+        
+        try:
+            usuarios_count = Usuario.query.count()
+            textos_count = Texto.query.count()
+            info["db_status"] = "OK"
+            info["usuarios_count"] = usuarios_count
+            info["textos_count"] = textos_count
+        except Exception as db_err:
+            info["db_status"] = f"ERRO: {str(db_err)}"
+            
+        return jsonify(info)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/verificar-email')
