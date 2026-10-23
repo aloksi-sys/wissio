@@ -576,6 +576,12 @@ def debug_info():
 def verificar_email():
     user = Usuario.query.get(session['usuario_id'])
     
+    # Se já estiver verificado, redireciona imediatamente
+    if user.email_verificado:
+        session['email_verificado'] = True
+        flash('Seu e-mail já está verificado!', 'info')
+        return redirect(url_for('home'))
+    
     if request.method == 'POST':
         # Verificação instantânea por clique no botão
         user.email_verificado = True
@@ -585,10 +591,6 @@ def verificar_email():
         session['email_verificado'] = True
         flash('E-mail verificado com sucesso! Bem-vindo ao WISSIO.', 'success')
         return redirect(url_for('home'))
-        
-    # Se já estiver verificado, garante que a sessão reflete isso
-    if user.email_verificado:
-        session['email_verificado'] = True
         
     return render_template('verificar_email.html', user=user)
 

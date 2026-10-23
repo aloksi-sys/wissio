@@ -1,15 +1,29 @@
 {% extends "base.html" %}
-
 {% block content %}
 <div class="container mb-5">
+    <!-- Header com contador e botão de atualização -->
+    <div class="row align-items-center mb-4 g-3">
+        <div class="col-12 col-md-8">
+            <h2 class="mb-1 fw-bold"><i class="bi bi-lightbulb text-warning me-2"></i>Dicas de Alemão</h2>
+            <p class="text-muted mb-0">Mostrando <strong>{{ dicas|length }}</strong> dicas aleatórias (de um total de {{ total_filtradas }})</p>
+        </div>
+        <div class="col-12 col-md-4 text-md-end">
+            <button class="btn btn-lg btn-warning fw-bold px-4 py-2 shadow-sm" 
+                    onclick="location.reload()" 
+                    style="background-color: #ffc107; border-color: #ffc107; color: #000;">
+                <i class="bi bi-arrow-clockwise me-1"></i>Atualizar Dicas
+            </button>
+        </div>
+    </div>
+
     <!-- Filtros -->
-    <div class="card mb-4">
+    <div class="card mb-4 shadow-sm">
         <div class="card-body">
             <form method="GET" class="row g-3 align-items-end">
                 <div class="col-auto">
-                    <label class="form-label mb-1">Filtrar por Nível</label>
+                    <label class="form-label mb-1 fw-semibold">Filtrar por Nível CEFR</label>
                     <select name="nivel" class="form-select" onchange="this.form.submit()">
-                        <option value="">Todos os Níveis</option>
+                        <option value="">Todos os Níveis (A1 - C2)</option>
                         {% for nivel in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] %}
                         <option value="{{ nivel }}" {% if filtro_nivel == nivel %}selected{% endif %}>{{ nivel }}</option>
                         {% endfor %}
@@ -17,23 +31,14 @@
                 </div>
                 <div class="col-auto">
                     <a href="{{ url_for('dicas_alemao') }}" class="btn btn-outline-secondary" title="Limpar filtros">
-                        <i class="bi bi-x-circle"></i>
+                        <i class="bi bi-x-circle me-1"></i>Limpar
                     </a>
                 </div>
             </form>
         </div>
     </div>
 
-    <div class="d-flex justify-content-center align-items-center mb-4">
-        <div>
-            <h2 class="mb-1 fw-bold"><i class="bi bi-lightbulb text-warning me-2"></i>Dicas de Alemão</h2>
-            <p class="text-muted mb-0">{{ dicas|length }} dica{% if dicas|length != 1 %}s{% endif %} de {{ total_filtradas }} encontradas</p>
-        </div>
-        <button class="btn btn-outline-primary" onclick="location.reload()">
-            <i class="bi bi-arrow-clockwise me-1"></i>Atualizar
-        </button>
-    </div>
-
+    <!-- Cards de Dicas -->
     <div class="row g-4">
         {% for dica in dicas %}
         <div class="col-md-6 col-lg-4">
@@ -49,19 +54,19 @@
                         </span>
                     </div>
                     
-                    <h5 class="card-title fw-bold mb-2">{{ dica.titulo|truncate(40) }}</h5>
+                    <h5 class="card-title fw-bold mb-2">{{ dica.titulo|safe|truncate(40) }}</h5>
                     
-                    <p class="card-text text-muted small flex-grow-1 mb-3">{{ dica.resumo }}</p>
+                    <p class="card-text text-muted small flex-grow-1 mb-3">{{ dica.resumo|safe }}</p>
                     
                     <!-- Exemplo em alemão -->
-                    <div class="bg-light p-2 rounded mb-2" style="font-size: 0.95rem;">
-                        <strong>DE:</strong> {{ dica.exemplo_alemao }}
+                    <div class="bg-light text-dark p-2 rounded mb-2" style="font-size: 0.95rem;">
+                        <strong>DE:</strong> {{ dica.exemplo_alemao|safe }}
                     </div>
                     
                     <!-- Exemplo em português -->
                     <div class="mb-3">
                         <small class="text-muted">PT:</small>
-                        <span class="ms-1">{{ dica.exemplo_portugues }}</span>
+                        <span class="ms-1">{{ dica.exemplo_portugues|safe }}</span>
                     </div>
                     
                     <!-- Botão para detalhes -->
@@ -79,7 +84,7 @@
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">{{ dica.titulo }}</h5>
+                        <h5 class="modal-title fw-bold">{{ dica.titulo|safe }}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
@@ -87,13 +92,13 @@
                             <div class="col-md-6">
                                 <h6 class="text-muted mb-2">Exemplo em Alemão</h6>
                                 <div class="alert alert-secondary mb-3">
-                                    <code style="font-size: 1.1rem;">{{ dica.exemplo_alemao }}</code>
+                                    <code style="font-size: 1.1rem; color: #333;">{{ dica.exemplo_alemao|safe }}</code>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <h6 class="text-muted mb-2">Tradução</h6>
                                 <div class="alert alert-info mb-3">
-                                    {{ dica.exemplo_portugues }}
+                                    {{ dica.exemplo_portugues|safe }}
                                 </div>
                             </div>
                         </div>
@@ -116,7 +121,7 @@
                 <p class="text-muted mb-4">
                     Tente remover os filtros ou consultar outros recursos da plataforma.
                 </p>
-                <a href="{{ url_for('dicas_alemao') }}" class="btn btn-wissio-primary">
+                <a href="{{ url_for('dicas_alemao') }}" class="btn btn-wissio-primary btn-lg">
                     <i class="bi bi-arrow-clockwise me-1"></i>Mostrar todas as dicas
                 </a>
             </div>

@@ -643,16 +643,27 @@ def processar_texto_alemao(texto):
 
         # Rótulos do tipo de palavra (aparecem no verso do cartão estilo Anki)
         tipos = {
-            'NOUN': 'Substantivo', 'PROPN': 'Substantivo próprio',
-            'VERB': 'Verbo', 'ADJ': 'Adjetivo', 'ADV': 'Advérbio',
+            'NOUN': 'Substantivo',
+            'VERB': 'Verbo', 
+            'ADJ': 'Adjetivo', 
+            'ADV': 'Advérbio',
         }
 
         for token in doc:
             if len(flashcards_extraidos) >= limite:
                 break
+            # Ignorar nomes próprios explicitamente
+            if token.pos_ == 'PROPN':
+                continue
             if token.pos_ not in tipos:
                 continue
             lemma = token.lemma_ or token.text
+            # Filtro adicional para nomes próprios que o spaCy pode errar o POS mas começam com maiúscula e não são início de frase
+            if token.text[0].isupper() and token.i > 0 and doc[token.i-1].text not in ['.', '!', '?']:
+                # Provável nome próprio no meio da frase
+                if token.pos_ != 'NOUN': # substantivos alemães sempre maiúsculos, então NOUN é ok
+                    continue
+
             if len(lemma) <= 3 or lemma.lower() in _STOPWORDS_ALEMAO:
                 continue
             if lemma in vistas:
@@ -673,11 +684,12 @@ def processar_texto_alemao(texto):
                     if len(flashcards_extraidos) >= limite:
                         break
 
-        # Traduz em paralelo (com cache) para não travar a requisição
-        traduzir_lote([f['palavra'] for f in flashcards_extraidos])
+        # Traduz cada flashcard usando a função oficial de tradução
         for f in flashcards_extraidos:
+            trad, _ = translate_with_definition(f['palavra'], src='de', tgt='pt')
+            f['traducao'] = trad
             f.setdefault('tipo', 'Vocabulário')
-            f['traducao'] = _cache_traducoes.get(f['palavra'].lower())
+
         # Gerar alternativas (4 opções, 1 correta) para cada flashcard
         palavras_todas = [f['palavra'] for f in flashcards_extraidos]
         for f in flashcards_extraidos:
