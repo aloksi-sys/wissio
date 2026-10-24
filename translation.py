@@ -23,7 +23,7 @@ _TRADUCOES_LOCAIS_PT = {
     'machen': 'fazer', 'mache': 'faço', 'machst': 'fazes', 'macht': 'faz', 'gemacht': 'feito', 'machte': 'fazia',
     'gehen': 'ir / andar', 'gehe': 'vou', 'gehst': 'vais', 'geht': 'vai', 'ging': 'foi', 'gegangen': 'ido',
     'kommen': 'vir', 'komme': 'venho', 'kommst': 'vens', 'kommt': 'vem', 'kam': 'veio', 'gekommen': 'vindo',
-    'sehen': 'ver', 'siehe': vejo, 'siehst': 'ves', 'sieht': 'vê', 'sah': 'viu', 'gesehen': 'visto',
+    'sehen': 'ver', 'siehe': 'vejo', 'siehst': 'ves', 'sieht': 'vê', 'sah': 'viu', 'gesehen': 'visto',
     'geben': 'dar', 'gebe': 'dou', 'gibst': 'dás', 'gibt': 'dá', 'gab': 'deu', 'gegeben': 'dado',
     'nehmen': 'pegar / tomar', 'nehme': 'pego', 'nimmst': 'pegas', 'nimmt': 'pega', 'nahm': 'pegou', 'genommen': 'pegado',
     'sprechen': 'falar', 'spreche': 'falo', 'sprichst': 'falas', 'spricht': 'fala', 'sprach': 'falou', 'gesprochen': 'falado',
@@ -68,7 +68,7 @@ _TRADUCOES_LOCAIS_PT = {
     'donnerstag': 'quinta-feira', 'freitag': 'sexta-feira', 'samstag': 'sábado',
     'sommer': 'verão', 'winter': 'inverno', 'frühling': 'primavera', 'herbst': 'outono',
     'essen': 'comida', 'trinken': 'bebida', 'kaffee': 'café', 'tee': 'chá', 'milch': 'leite',
-    'brot': 'pão', 'fleisch': 'carne', 'fisch': 'peixe', 'apst': 'maçã', 'obst': 'fruta',
+    'brot': 'pão', 'fleisch': 'carne', 'fisch': 'peixe', 'obst': 'fruta',
     'sport': 'esporte', 'fußball': 'futebol', 'tennis': 'tênis', 'fitnessstudio': 'academia',
     'fitness-studio': 'academia', 'freizeitgestaltung': 'atividade de lazer', 'kilometer': 'quilômetro',
 
@@ -106,12 +106,11 @@ def translate_with_definition(text: str, src: str = "de", tgt: str = "pt"):
     if cache_key in _cache_memoria:
         return _cache_memoria[cache_key]
     
-    # 1) Tenta dicionário local (com exato e variações sem hífen/maiúsculas)
+    # 1) Tenta dicionário local
     translated = _TRADUCOES_LOCAIS_PT.get(limpo)
     if not translated and '-' in limpo:
         translated = _TRADUCOES_LOCAIS_PT.get(limpo.replace('-', ''))
-    if not translated and limpo.endswith(('en', 'n', 's', 'es', 'er')):
-        # Tentar remover sufixo de plural ou infinitivo
+    if not translated:
         for suf in ['en', 'n', 's', 'es', 'er']:
             if limpo.endswith(suf) and len(limpo) - len(suf) > 2:
                 base = limpo[:-len(suf)]
@@ -119,7 +118,7 @@ def translate_with_definition(text: str, src: str = "de", tgt: str = "pt"):
                     translated = _TRADUCOES_LOCAIS_PT[base]
                     break
 
-    # 2) Se não achar no local, chama a API MyMemory com timeout seguro
+    # 2) API MyMemory
     if not translated:
         try:
             import urllib.parse
@@ -129,21 +128,17 @@ def translate_with_definition(text: str, src: str = "de", tgt: str = "pt"):
                 data = resp.json()
                 if data.get("responseData", {}).get("translatedText"):
                     t_api = data["responseData"]["translatedText"]
-                    # Validar se a API não retornou o próprio texto sem traduzir
                     if t_api.lower() != text_clean.lower() and "QUERY LENGTH" not in t_api:
                         translated = t_api
         except Exception:
             pass
             
-    # 3) Fallback morfológico inteligente e limpo (nunca exibe termos crus feios)
+    # 3) Fallback
     if not translated:
         if limpo.endswith(('en', 'ern', 'eln')):
             translated = f"{text_clean} (verbo)"
         elif limpo.endswith(('ig', 'lich', 'isch', 'bar')):
             translated = f"{text_clean} (adjetivo)"
-        elif text_clean[0].isupper() and len(text_clean) > 3:
-            # Substantivo em alemão (sempre maiúsculo)
-            translated = f"{text_clean}"
         else:
             translated = text_clean
             
