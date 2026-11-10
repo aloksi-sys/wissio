@@ -616,7 +616,7 @@ def debug_info():
 def verificar_email():
     user = Usuario.query.get(session['usuario_id'])
     
-    # Se já estiver verificado, redireciona imediatamente
+    # Se já estiver verificado, sincroniza sessão e redireciona imediatamente
     if user.email_verificado:
         session['email_verificado'] = True
         flash('Seu e-mail já está verificado!', 'info')
@@ -633,6 +633,30 @@ def verificar_email():
         return redirect(url_for('home'))
         
     return render_template('verificar_email.html', user=user)
+
+
+@app.route('/verificar-email/<token>')
+def verificar_email_token(token):
+    """Verificação de e-mail via token (fluxo de produção)."""
+    user = Usuario.query.filter_by(token_verificacao=token).first()
+    
+    if not user or not user.verificar_token(token):
+        flash('Link de verificação inválido ou expirado.', 'danger')
+        return redirect(url_for('login'))
+    
+    user.email_verificado = True
+    user.token_verificacao = None
+    user.token_verificacao_expira = None
+    db.session.commit()
+    
+    # Se já estiver logado, sincroniza a sessão e vai para a home
+    if session.get('usuario_id') == user.id:
+        session['email_verificado'] = True
+        flash('E-mail verificado com sucesso! Bem-vindo ao WISSIO.', 'success')
+        return redirect(url_for('home'))
+    
+    flash('E-mail verificado com sucesso! Faça login para continuar.', 'success')
+    return redirect(url_for('login'))
 
 
 @app.route('/textos')

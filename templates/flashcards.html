@@ -306,10 +306,10 @@
         "exemplo": {{ item.flashcard.exemplo|tojson }},
         "alternativas": {{ item.alternativas|tojson }},
         "origem": {{ (item.flashcard.texto.titulo if item.flashcard.texto else "Texto")|tojson }},
-        "estado": {{ item.progresso.state_label|tojson }},
-        "reps": {{ item.progresso.reps }},
-        "lapses": {{ item.progresso.lapses }},
-        "proxima_revisao": {{ (item.progresso.next_review.isoformat() if item.progresso.next_review else none)|tojson }}
+        "estado": {{ (item.progresso.state_label if item.progresso else "Novo")|tojson }},
+        "reps": {{ item.progresso.reps if item.progresso else 0 }},
+        "lapses": {{ item.progresso.lapses if item.progresso else 0 }},
+        "proxima_revisao": {{ (item.progresso.next_review.isoformat() if item.progresso and item.progresso.next_review else none)|tojson }}
     }{% if not loop.last %},{% endif %}
     {% endfor %}
 ]
@@ -376,7 +376,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function atualizarContadores() {
         const total = totalCardsOriginal;
-        const progresso = total > 0 ? Math.round((indice / total) * 100) : 0;
+        // Progresso inclui o cartão atual em exibição: (X de Y) => X/Y * 100
+        const progresso = total > 0 ? Math.round(((indice + 1) / total) * 100) : 0;
         document.getElementById('card-atual').textContent = Math.min(indice + 1, total);
         document.getElementById('card-total').textContent = total;
         document.getElementById('qtd-xp').textContent = xp;

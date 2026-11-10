@@ -144,6 +144,78 @@ def _log(msg):
     print(f"[translation] {msg}", flush=True)
 
 
+def _traduzir_google(texto, src='de', tgt='pt'):
+    """Camada 2a: endpoint publico do Google Translate (client=gtx)."""
+    try:
+        url = ("https://translate.googleapis.com/translate_a/single"
+               f"?client=gtx&sl={src}&tl={tgt}&dt=t&q={urllib.parse.quote(texto)}")
+        resp = requests.get(url, timeout=2)
+        if resp.status_code == 200:
+            data = resp.json()
+            # Formato: [[["tradução","original",...],...],...]
+            if (isinstance(data, list) and data and isinstance(data[0], list)):
+                partes = [seg[0] for seg in data[0] if isinstance(seg, list) and seg]
+                if partes:
+                    return "".join(partes).strip()
+    except Exception as e:
+        _log(f"API Google falhou para '{texto}': {e}")
+    return None
+
+
+def _traduzir_mymemory(texto, src='de', tgt='pt'):
+    """Camada 2b: API MyMemory (backup do Google)."""
+    try:
+        url = ("https://api.mymemory.translated.net/get?q="
+               + urllib.parse.quote(texto) + f"&langpair={src}|{tgt}")
+        resp = requests.get(url, timeout=2)
+        if resp.status_code == 200:
+            data = resp.json()
+            t_api = (data.get("responseData") or {}).get("translatedText")
+            if t_api and t_api.strip():
+                t_api = t_api.strip()
+                if "QUERY LENGTH" not in t_api.upper():
+                    return t_api
+    except Exception as e:
+        _log(f"API MyMemory falhou para '{texto}': {e}")
+    return None
+
+
+def _quebrar_composto(limpo):
+    """Camada 1.5: tenta dividir uma palavra composta alemã em duas partes
+    conhecidas do dicionário e combinar as traduções.
+    Ex.: 'deutschkurs' -> deutsch (alemão) + kurs (curso) -> 'curso de alemão'.
+
+    Em alemão, o ÚLTIMO elemento é o núcleo do composto, então em português
+    ele vem primeiro: "núcleo de modificador".
+    """
+    if len(limpo) < 7:
+        return None
+    for i in range(3, len(limpo) - 2):
+        esq, direita = limpo[:i], limpo[i:]
+        t_esq = _TRADUCOES_LOCAIS_PT.get(esq)
+        t_dir = _TRADUCOES_LOCAIS_PT.get(direita)
+        if t_esq and t_dir:
+            # núcleo (direita) primeiro: "curso de alemão", "oferta de idiomas"
+            return f"{t_dir} de {t_esq}"
+    return None
+
+
+def _validar_traducao(original, traduzido):
+    """Camada 3 (sanity check): uma tradução 'válida' precisa ser diferente do
+    original (salvo internacionais como 'Online', 'Computer')."""
+    if not traduzido:
+        return False
+    trad = " ".join(str(traduzido).split())
+    if not trad:
+        return False
+    # palavras internacionais podem ser idênticas (Computer, Internet, Online)
+    _INTERNACIONAIS = {'online', 'computer', 'internet', 'email', 'e-mail',
+                       'test', 'teste', 'handy', 'bus', 'taxi', 'park', 'sport'}
+    if trad.lower() in _INTERNACIONAIS or original.lower() in _INTERNACIONAIS:
+        return True
+    return trad.lower() != original.strip().lower()
+
+
 def translate_with_definition(text, src="de", tgt="pt"):
     if not text:
         return ("", None)
@@ -157,12 +229,12 @@ def translate_with_definition(text, src="de", tgt="pt"):
 
     translated = None
 
-    # 1) Dicionario local (exato)
+    # CAMADA 1: dicionario local (exato)
     translated = _TRADUCOES_LOCAIS_PT.get(limpo)
-    # 1b) Sem hifen
+    # 1b) sem hifen
     if not translated and '-' in limpo:
         translated = _TRADUCOES_LOCAIS_PT.get(limpo.replace('-', ''))
-    # 1c) Remocao de sufixo de plural/infinitivo
+    # 1c) remocao de sufixo de plural/infinitivo
     if not translated:
         for suf in ('en', 'n', 's', 'es', 'er', 'e'):
             if limpo.endswith(suf) and len(limpo) - len(suf) > 2:
@@ -170,33 +242,31 @@ def translate_with_definition(text, src="de", tgt="pt"):
                 if base in _TRADUCOES_LOCAIS_PT:
                     translated = _TRADUCOES_LOCAIS_PT[base]
                     break
-
-    # 2) API externa MyMemory (timeout curto, degradacao graciosa)
+    # 1d) palavra composta alemã (deutschkurs -> curso de alemão)
     if not translated:
-        try:
-            url = ("https://api.mymemory.translated.net/get?q="
-                   + urllib.parse.quote(text_clean) + "&langpair=de|pt")
-            resp = requests.get(url, timeout=2)
-            if resp.status_code == 200:
-                data = resp.json()
-                t_api = (data.get("responseData") or {}).get("translatedText")
-                if t_api and t_api.strip():
-                    t_api = t_api.strip()
-                    if t_api.lower() != text_clean.lower() and "QUERY LENGTH" not in t_api.upper():
-                        translated = t_api
-        except Exception as e:
-            _log(f"API MyMemory falhou para '{text_clean}': {e}")
+        translated = _quebrar_composto(limpo)
 
-    # 3) Fallback morfologico (nunca vazio, nunca None)
+    # CAMADA 2: APIs externas (Google primeiro, MyMemory como backup)
+    if not translated:
+        t_api = _traduzir_google(text_clean, src, tgt)
+        if not _validar_traducao(text_clean, t_api):
+            # tentar variação em minúsculas antes de desistir (algumas APIs
+            # só traduzem substantivos com inicial minúscula)
+            t_api = _traduzir_google(limpo, src, tgt)
+        if not _validar_traducao(text_clean, t_api):
+            t_api = _traduzir_mymemory(text_clean, src, tgt)
+        if _validar_traducao(text_clean, t_api):
+            translated = t_api
+
+    # CAMADA 3: fallback morfologico — nunca grava tradução idêntica à original
     if not translated:
         if limpo.endswith(('en', 'ern', 'eln')):
             translated = f"{text_clean} (verbo)"
         elif limpo.endswith(('ig', 'lich', 'isch', 'bar', 'sam')):
             translated = f"{text_clean} (adjetivo)"
-        elif text_clean and text_clean[0].isupper():
-            translated = text_clean
         else:
-            translated = text_clean
+            # palavra composta desconhecida: mantém o termo com rótulo claro
+            translated = f"{text_clean} (termo alemão)"
 
     if not translated:
         translated = text_clean or ""
