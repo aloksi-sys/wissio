@@ -676,13 +676,14 @@ def novo_texto():
     
     flashcards_criados = 0
     for card in resultado.get('flashcards', []):
-        # Traduzir do alemão para o português
-        traducao, definicao = translate_with_definition(card['palavra'], src='de', tgt='pt')
-        
-        # Garantir que traducao nunca seja None ou vazia
-        # Se o translate_with_definition retornar None, usar fallback
+        # Traduzir do alemão para o português (com degradação graciosa)
+        try:
+            traducao, definicao = translate_with_definition(card['palavra'], src='de', tgt='pt')
+        except Exception as _e:
+            print(f"[wissio_app] falha ao traduzir '{card['palavra']}': {_e}", flush=True)
+            traducao, definicao = card['palavra'], None
         if not traducao:
-            traducao = card['palavra'] + " (palavra alemã – consulte dicionário)"
+            traducao = card['palavra']
             definicao = None
         
         # Construir alternativas como lista para o quiz (4 opções)
@@ -705,7 +706,7 @@ def novo_texto():
         
         fc = Flashcard(
             palavra_alemao=card['palavra'],
-            traducao=traducao if traducao else None,
+            traducao=traducao or card['palavra'],
             definicao=definicao,
             tipo=card.get('tipo'),
             exemplo=card.get('exemplo'),
@@ -1126,7 +1127,13 @@ def gerar_flashcards_do_texto(id):
     todas_palavras = [f['palavra'] for f in resultado.get('flashcards', [])]
     
     for card in resultado.get('flashcards', []):
-        traducao, definicao = translate_with_definition(card['palavra'], src='de', tgt='pt')
+        try:
+            traducao, definicao = translate_with_definition(card['palavra'], src='de', tgt='pt')
+        except Exception as _e:
+            print(f"[wissio_app] falha ao traduzir '{card['palavra']}': {_e}", flush=True)
+            traducao, definicao = card['palavra'], None
+        if not traducao:
+            traducao = card['palavra']
         
         # Construir alternativas (4 opções de múltipla escolha)
         opcoes = []
@@ -1145,7 +1152,7 @@ def gerar_flashcards_do_texto(id):
         
         fc = Flashcard(
             palavra_alemao=card['palavra'],
-            traducao=traducao,
+            traducao=traducao or card['palavra'],
             definicao=definicao,
             tipo=card.get('tipo'),
             exemplo=card.get('exemplo'),

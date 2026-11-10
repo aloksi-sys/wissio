@@ -87,6 +87,8 @@
                         <h5 class="card-title text-primary">{{ card.palavra_alemao }}</h5>
                         {% if card.traducao %}
                         <p class="card-text"><strong>Tradução:</strong> {{ card.traducao }}</p>
+                        {% else %}
+                        <p class="card-text text-muted"><strong>Tradução:</strong> [Tradução não disponível]</p>
                         {% endif %}
                         {% if card.exemplo %}
                         <p class="card-text text-muted small"><em>Exemplo: "{{ card.exemplo }}"</em></p>

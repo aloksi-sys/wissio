@@ -504,6 +504,14 @@ _TRADUCOES_LOCAIS = {
     'mögen': 'gostar de', 'mag': 'gosto de', 'mögen': 'gostam de',
 }
 
+# Unifica com o dicionario curado de translation.py (valores de translation
+# tem precedencia para corrigir traducoes equivocadas da base antiga).
+try:
+    from translation import _TRADUCOES_LOCAIS_PT as _DICT_UNIFICADO
+    _TRADUCOES_LOCAIS.update(_DICT_UNIFICADO)
+except Exception as _e:
+    print(f'[processador] Falha ao unificar dicionarios: {_e}', flush=True)
+
 # Duração máxima de cada chamada à API (segundos)
 _TIMEOUT_API = 3
 
@@ -513,45 +521,27 @@ _cache_traducoes = {}
 from translation import translate_with_definition
 
 def traduzir_lote(palavras, destino='pt', max_workers=5, budget=8.0):
-    """
-    Pré-popula o cache com a tradução de várias palavras ao mesmo tempo.
-    Usa threads para não pagar a latência de cada chamada sequencialmente.
-    `budget` é o tempo total máximo (em segundos) gasto no lote inteiro.
-    """
-    if not palavras:
-        return
-    pendentes = [p for p in palavras if p and p.strip().lower() not in _cache_traducoes]
-    if not pendentes:
-        return
-    
-    from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutTimeout
-    
-    def traduzir_ou_cache(palavra):
-        # Usar cache local primeiro
-        chave = palavra.strip().lower()
-        if chave in _cache_traducoes:
-            return
-        # Usar a função robusta de translation.py
-        traducao, definicao = translate_with_definition(palavra, src='de', tgt='pt')
-        if traducao:
-            _cache_traducoes[chave] = traducao
-
-    ex = ThreadPoolExecutor(max_workers=max_workers)
+    """Delega para o tradutor unificado (translation.py), mantendo o cache
+    `_cache_traducoes` sincronizado para compatibilidade com o restante do
+    processador."""
     try:
-        futuros = {ex.submit(traduzir_ou_cache, p): p for p in pendentes}
-        try:
-            for f in as_completed(futuros, timeout=budget):
-                pass
-        except FutTimeout:
-            pass
-        for f, p in futuros.items():
-            if f.done():
-                try:
-                    f.result()
-                except Exception:
-                    pass
-    finally:
-        ex.shutdown(wait=False)
+        from translation import traduzir_lote as _tl
+        _tl(palavras, destino=destino, max_workers=max_workers, budget=budget)
+    except Exception as e:
+        print(f"[processador] traduzir_lote delegado falhou: {e}", flush=True)
+        for p in (palavras or []):
+            if not p:
+                continue
+            chave = p.strip().lower()
+            if chave in _cache_traducoes:
+                continue
+            try:
+                from translation import translate_with_definition
+                t, _ = translate_with_definition(p, src='de', tgt=destino)
+                if t:
+                    _cache_traducoes[chave] = t
+            except Exception:
+                _cache_traducoes[chave] = p.strip()
 
 
 def _normalizar_palavra(word):
@@ -560,50 +550,23 @@ def _normalizar_palavra(word):
 
 
 def traduzir_palavra(palavra, destino='pt'):
-    """
-    Traduz uma palavra usando dicionário local com heurísticas avançadas.
-    Faz cache em memória para evitar chamadas repetidas.
-    Retorna sempre uma tradução (mesmo que heurística) quando possível.
-    """
+    """Delega para o tradutor unificado (translation.py)."""
     if not palavra or not palavra.strip():
         return None
-
     chave = palavra.strip().lower()
     if chave in _cache_traducoes:
         return _cache_traducoes[chave]
-    
-    # 1) Busca exata no dicionário
-    resultado = _TRADUCOES_LOCAIS.get(chave)
-    
-    # 2) Se não achou, tentar heurísticas avançadas
-    if not resultado or resultado.strip().lower() == chave:
-        # Remover plural comuns
-        for sufixo in ['en', 'n', 's', 'es', 'e', 'er']:
-            if chave.endswith(sufixo) and len(chave) - len(sufixo) > 2:
-                base = chave[:-len(sufixo)]
-                if base in _TRADUCOES_LOCAIS:
-                    resultado = _TRADUCOES_LOCAIS[base]
-                    break
-        
-        # 3) Tratamento para nome próprio (maiúscula inicial)
-        if not resultado and palavra[0].isupper():
-            # Nome próprio - não traduzir, marcar como nome
-            resultado = f"'{palavra}' (nome próprio alemão)"
-        
-        # 4) Tratamento para palavras compostas longas
-        if not resultado and len(chave) > 10:
-            for i in range(6, len(chave) - 3):
-                parte = chave[-i:]
-                if parte in _TRADUCOES_LOCAIS:
-                    resultado = f"{palavra} (derivado de {_TRADUCOES_LOCAIS[parte]})"
-                    break
-        
-        # 5) Fallback final: indicar que é termo técnico
-        if not resultado:
-            resultado = f"{palavra} (termo alemão)"
-    
-    _cache_traducoes[chave] = resultado
-    return resultado
+    try:
+        from translation import translate_with_definition
+        t, _ = translate_with_definition(palavra, src='de', tgt=destino)
+        if t:
+            _cache_traducoes[chave] = t
+            return t
+    except Exception as e:
+        print(f"[processador] traduzir_palavra falhou: {e}", flush=True)
+    fallback = palavra.strip()
+    _cache_traducoes[chave] = fallback
+    return fallback
 
 
 def processar_texto_alemao(texto):
@@ -687,7 +650,10 @@ def processar_texto_alemao(texto):
         # Traduz cada flashcard usando a função oficial de tradução
         for f in flashcards_extraidos:
             trad, _ = translate_with_definition(f['palavra'], src='de', tgt='pt')
+            if not trad:
+                trad = f['palavra']
             f['traducao'] = trad
+            _cache_traducoes[f['palavra'].lower()] = trad
             f.setdefault('tipo', 'Vocabulário')
 
         # Gerar alternativas (4 opções, 1 correta) para cada flashcard
@@ -733,7 +699,16 @@ def processar_texto_alemao(texto):
         traduzir_lote([f['palavra'] for f in flashcards_extraidos])
         for f in flashcards_extraidos:
             f.setdefault('tipo', 'Vocabulário')
-            f['traducao'] = _cache_traducoes.get(f['palavra'].lower())
+            t = _cache_traducoes.get(f['palavra'].lower())
+            if not t:
+                try:
+                    t, _ = translate_with_definition(f['palavra'], src='de', tgt='pt')
+                except Exception:
+                    t = f['palavra']
+            if not t:
+                t = f['palavra']
+            f['traducao'] = t
+            _cache_traducoes[f['palavra'].lower()] = t
 
         palavras = [p for p in texto.split() if p]
         ctest_lista = []
