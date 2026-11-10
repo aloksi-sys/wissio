@@ -38,6 +38,7 @@
             <h5 class="text-secondary mb-3">Complete os espaços em branco com a segunda metade das palavras:</h5>
             
             <form method="POST" action="/submeter_ctest" id="form-ctext">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <input type="hidden" name="id" value="{{ texto.id }}"/>
                 
                 <div style="font-size: 1.15rem; line-height: 2;" class="font-monospace">
@@ -98,6 +99,7 @@
                 <div class="card p-4 text-center" style="background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
                     <p class="text-muted mb-3">Nenhum flashcard gerado automaticamente.</p>
                     <form method="POST" action="{{ url_for('gerar_flashcards_do_texto', id=texto.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button class="btn btn-wissio-primary">
                             <i class="bi bi-magic me-2"></i>Gerar flashcards deste texto
                         </button>

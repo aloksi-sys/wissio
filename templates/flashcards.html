@@ -325,6 +325,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Armazena o total original para a barra de progresso
     const totalCardsOriginal = baralho.length;
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
 
     const elCartao       = document.getElementById('cartao');
     const dicaFsrs       = document.getElementById('dica-fsrs');
@@ -441,14 +442,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     btn.classList.add(correta ? 'btn-success' : 'btn-danger');
                     // Desabilita demais
                     altDiv.querySelectorAll('button').forEach(b => b.disabled = true);
-                    // Persiste escolha no servidor
-                    fetch(`/flashcards/${item.id}/responder`, {
-                        method: 'POST',
-                        headers: {'Content-Type':'application/x-www-form-urlencoded'},
-                        body: `resposta=` + encodeURIComponent(escolhida)
-                    }).catch(()=>{});
-                    // Avalia automaticamente (good se correta, again se errada)
-                    avaliar(correta ? 'good' : 'again');
+                    // Persiste escolha e avaliação FSRS em UMA única requisição:
+                    // o endpoint /revisar aplica o FSRS com base na facilidade.
+                    avaliar(correta ? 'good' : 'again', escolhida);
                 });
             });
         } else {
@@ -477,7 +473,7 @@ document.addEventListener('DOMContentLoaded', function () {
         dicaFsrs.style.visibility = 'visible';
     }
 
-    function avaliar(facilidade) {
+    function avaliar(facilidade, respostaQuiz) {
         if (!virado || bloqueado) return;
 
         const item = fila[indice];
@@ -489,11 +485,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
         bloqueado = true;
 
-        // Atualização otimista: a sessão não trava se a rede falhar
+        // Atualização otimista: a sessão não trava se a rede falhar.
+        // `respostaQuiz` (opcional, modo quiz) é persistida na mesma requisição,
+        // evitando chamadas duplicadas de atualização FSRS.
+        const corpo = new URLSearchParams({ facilidade });
+        if (respostaQuiz !== undefined) corpo.append('resposta', respostaQuiz);
+
         fetch(`/flashcards/${item.id}/revisar`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'facilidade=' + encodeURIComponent(facilidade)
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF_TOKEN },
+            body: corpo.toString()
         }).catch(() => {});
 
         if (facilidade === 'again') {

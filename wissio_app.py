@@ -6,6 +6,7 @@ Versão ultra-robusta para Render deployment.
 import json
 import sys
 import os
+import platform
 import secrets
 import random
 from datetime import datetime, timedelta, timezone
@@ -47,7 +48,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 
 # Configurações
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'wissio-render-secret-key-2026-secure-32chars')
+_env_is_production = os.environ.get('FLASK_ENV', '').lower() == 'production' or bool(os.environ.get('RENDER'))
+_secret_key = os.environ.get('SECRET_KEY')
+if not _secret_key:
+    if _env_is_production:
+        raise ValueError('SECRET_KEY nao definida: obrigatorio em producao via variavel de ambiente.')
+    _secret_key = secrets.token_hex(32)
+app.config['SECRET_KEY'] = _secret_key
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -57,9 +64,9 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Evita problemas CORS
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 horas
 
-# CSRF pode ser habilitado quando SMTP configurado
-# Por enquanto, desabilitado para funcionamento estável
-app.config['WTF_CSRF_ENABLED'] = False
+# CSRF: proteção global reativada (Flask-WTF CSRFProtect).
+# Tokens são validados automaticamente em POST/PUT/PATCH/DELETE.
+app.config['WTF_CSRF_ENABLED'] = True
 app.config['WTF_CSRF_TIME_LIMIT'] = None
 
 print(f"SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
@@ -70,9 +77,14 @@ sys.stdout.flush()
 from models import db, Usuario, Texto, Flashcard, ProgressoFlashcard, CTestSubmissao, EstatisticaDiaria, NivelCEFR, ObjetivoAprendizagem, RespostaFlashcard
 from processador import processar_texto_alemao
 from translation import translate_with_definition
+from flask_wtf import CSRFProtect
 
 # Inicializar SQLAlchemy
 db.init_app(app)
+
+# Inicializar proteção CSRF global.
+# Registra também a função global `csrf_token()` nos templates Jinja2.
+csrf = CSRFProtect(app)
 
 # Close db session after request
 @app.teardown_appcontext
@@ -89,21 +101,23 @@ from flask_wtf.csrf import generate_csrf, validate_csrf
 @app.context_processor
 def inject_globals():
     user = get_current_user()
-    csrf_token_value = generate_csrf() if app.config.get('WTF_CSRF_ENABLED', True) else ''
     return {
         'tema_escuro': session.get('tema_escuro', False),
         'usuario': user,
-        'csrf_token': csrf_token_value
     }
 
 
-# Decoraor para CSRF em rotas AJAX
+# Decorador para CSRF em rotas AJAX
 def csrf_protected(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if request.method == 'POST':
+        if request.method == 'POST' and app.config.get('WTF_CSRF_ENABLED', True):
             token = request.form.get('csrf_token') or request.headers.get('X-CSRFToken')
-            if not token or not validate_csrf(token):
+            if not token:
+                return jsonify({'error': 'CSRF token ausente'}), 400
+            try:
+                validate_csrf(token)
+            except Exception:
                 return jsonify({'error': 'CSRF token inválido'}), 400
         return f(*args, **kwargs)
     return decorated
@@ -362,7 +376,34 @@ def biblioteca():
 @login_required
 def flashcards():
     user = Usuario.query.get(session['usuario_id'])
-    flashcards = Flashcard.query.filter_by(usuario_id=user.id).all()
+
+    ids_param = request.args.get('ids')
+    pendentes_param = request.args.get('pendentes')
+
+    if ids_param:
+        try:
+            ids_list = [int(i.strip()) for i in ids_param.split(',') if i.strip().isdigit()]
+            flashcards = Flashcard.query.filter(Flashcard.id.in_(ids_list), Flashcard.usuario_id == user.id).all()
+        except ValueError:
+            flashcards = Flashcard.query.filter_by(usuario_id=user.id).all()
+    elif pendentes_param:
+        # Somente cartões novos ou com revisão vencida
+        now = datetime.now(timezone.utc)
+        progressos = {p.flashcard_id: p for p in ProgressoFlashcard.query.filter_by(usuario_id=user.id).all()}
+        todos = Flashcard.query.filter_by(usuario_id=user.id).all()
+        flashcards = []
+        for fc in todos:
+            prog = progressos.get(fc.id)
+            if prog is None or prog.next_review is None:
+                flashcards.append(fc)
+            else:
+                next_review = prog.next_review
+                if next_review.tzinfo is None:
+                    next_review = next_review.replace(tzinfo=timezone.utc)
+                if next_review <= now:
+                    flashcards.append(fc)
+    else:
+        flashcards = Flashcard.query.filter_by(usuario_id=user.id).all()
     
     # Preparar dados para o template
     cards_data = []
@@ -540,13 +581,12 @@ def dicas_alemao():
 
 
 @app.route('/debug-info')
+@login_required
 def debug_info():
     """Endpoint de diagnóstico para Render."""
+    if not app.debug and os.environ.get('ENABLE_DEBUG_INFO', 'false').lower() != 'true':
+        abort(404)
     try:
-        import sys
-        import os
-        import platform
-        
         info = {
             "python_version": sys.version,
             "platform": platform.platform(),
@@ -719,6 +759,7 @@ def flashcards_do_texto(id):
 
 @app.route('/flashcards/<int:fc_id>/responder', methods=['POST'])
 @login_required
+@csrf_protected
 def responder_flashcard(fc_id):
     usuario = get_current_user()
     flashcard = Flashcard.query.get_or_404(fc_id)
@@ -750,6 +791,7 @@ def responder_flashcard(fc_id):
 
 @app.route('/flashcards/<int:fc_id>/revisar', methods=['POST'])
 @login_required
+@csrf_protected
 def revisar_flashcard(fc_id):
     usuario = get_current_user()
     flashcard = Flashcard.query.get_or_404(fc_id)
@@ -757,6 +799,19 @@ def revisar_flashcard(fc_id):
         abort(403)
     
     facilidade = request.form.get('facilidade', 'good')
+    resposta = request.form.get('resposta')  # opcional (modo quiz)
+
+    # Registra a resposta do modo quiz para auditoria/estatísticas
+    if resposta is not None:
+        correta = (resposta == (flashcard.traducao or ''))
+        flashcard.ultima_resposta = resposta
+        flashcard.resposta_correta = correta
+        db.session.add(RespostaFlashcard(
+            usuario_id=usuario.id,
+            flashcard_id=flashcard.id,
+            resposta_texto=resposta,
+            correta=correta
+        ))
     
     progresso = ProgressoFlashcard.query.filter_by(
         usuario_id=usuario.id, flashcard_id=fc_id
@@ -779,11 +834,15 @@ def revisar_flashcard(fc_id):
         progresso.next_review = datetime.now(timezone.utc) + timedelta(days=int(progresso.stability))
     
     db.session.commit()
-    return jsonify({'success': True, 'facilidade': facilidade})
+    payload = {'success': True, 'facilidade': facilidade}
+    if resposta is not None:
+        payload['correct'] = (resposta == (flashcard.traducao or ''))
+    return jsonify(payload)
 
 
 @app.route('/toggle-tema', methods=['POST'])
 @login_required
+@csrf_protected
 def toggle_tema():
     usuario = get_current_user()
     if usuario:
@@ -922,6 +981,7 @@ def submeter_ctest():
 
 @app.route('/api/ctest-submit', methods=['POST'])
 @login_required
+@csrf_protected
 def api_ctest_submit():
     """Endpoint alternativo para submissao de C-Test via API."""
     try:
@@ -1140,13 +1200,6 @@ def not_found_error(error):
 @app.errorhandler(500)
 def internal_error(error):
     return render_template('erro.html', error='Erro interno do servidor'), 500
-
-
-# Helper function
-def get_current_user():
-    if 'usuario_id' not in session:
-        return None
-    return Usuario.query.get(session['usuario_id'])
 
 
 # ========== INICIALIZAÇÃO DO BANCO ==========

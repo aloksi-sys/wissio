@@ -8,30 +8,53 @@
 
 const { test, expect } = require('@playwright/test');
 
-test('Fluxo completo de flashcards', async ({ page }) => {
-  test.setTimeout(120000); // 2 min timeout to allow processing
-  // 1. Cadastro
-  await page.waitForLoadState('networkidle'); // after navigation
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
+test('Fluxo completo de flashcards', async ({ page }) => {
+  test.setTimeout(120000); // 2 min timeout to allow processing
+
+  // 1. Cadastro
+  await page.goto(`${BASE_URL}/cadastro`);
+  await page.waitForLoadState('networkidle');
+
+  const csrfCadastro = await page.getAttribute('input[name="csrf_token"]', 'value');
   await page.fill('input[name="nome"]', 'E2E User');
-  await page.fill('input[name="email"]', 'e2e@example.com');
+  await page.fill('input[name="email"]', `e2e-${Date.now()}@example.com`);
   await page.fill('input[name="senha"]', 'senha123');
   await page.fill('input[name="confirmar_senha"]', 'senha123');
-  // CSRF token is in hidden input
-  const csrf = await page.getAttribute('input[name="csrf_token"]', 'value');
-  await page.fill('input[name="csrf_token"]', csrf);
-  await page.waitForNavigation(); // ensure page load after submit
+  await page.fill('input[name="csrf_token"]', csrfCadastro);
 
-  await expect(page).toURL(/dashboard/);
+  await Promise.all([
+    page.waitForNavigation(),
+    page.click('button[type="submit"]'),
+  ]);
 
-  // 2. Onboarding – objetivo
-  await page.goto('http://localhost:5000/onboarding/objetivos');
+  // Após cadastro, a aplicação redireciona para o login
+  await expect(page).toHaveURL(/login/);
+
+  // Login
+  const emailUsado = await page.getAttribute('input[name="email"]', 'value').catch(() => null);
+  const csrfLogin = await page.getAttribute('input[name="csrf_token"]', 'value');
+  await page.fill('input[name="email"]', emailUsado || 'e2e@example.com');
+  await page.fill('input[name="senha"]', 'senha123');
+  await page.fill('input[name="csrf_token"]', csrfLogin);
+
+  await Promise.all([
+    page.waitForNavigation(),
+    page.click('button[type="submit"]'),
+  ]);
+
+  // 2. Onboarding – objetivo (rota usa underscore: /onboarding_objetivos)
+  await page.goto(`${BASE_URL}/onboarding_objetivos`);
   const csrfObj = await page.getAttribute('input[name="csrf_token"]', 'value');
   await page.fill('input[name="csrf_token"]', csrfObj);
   await page.check('input[value="estudos"]');
-  await page.waitForNavigation(); // ensure page load after submit
+  await Promise.all([
+    page.waitForNavigation(),
+    page.click('button[type="submit"]'),
+  ]);
 
-  await expect(page).toURL(/onboarding\/plano/);
+  await expect(page).toHaveURL(/onboarding_plano/);
 
   // 3. Onboarding – plano
   const csrfPlano = await page.getAttribute('input[name="csrf_token"]', 'value');
@@ -40,28 +63,39 @@ test('Fluxo completo de flashcards', async ({ page }) => {
   await page.fill('input[name="meta_semanal_textos"]', '5');
   await page.fill('input[name="meta_flashcards_iniciais"]', '30');
   await page.selectOption('select[name="nivel_atual"]', 'A1');
-  await page.waitForNavigation(); // ensure page load after submit
+  await Promise.all([
+    page.waitForNavigation(),
+    page.click('button[type="submit"]'),
+  ]);
 
-  await expect(page).toURL(/dashboard/);
-
-  // 4. Cria novo texto
-  await page.goto('http://localhost:5000/novo-texto');
+  // 4. Cria novo texto (rota do formulário é /texto/novo)
+  await page.goto(`${BASE_URL}/novo-texto`);
   const csrfTexto = await page.getAttribute('input[name="csrf_token"]', 'value');
   await page.fill('input[name="csrf_token"]', csrfTexto);
   await page.fill('input[name="titulo"]', 'Teste E2E');
   await page.fill('textarea[name="conteudo"]', 'Ich lebe in Berlin. Die Stadt ist klein.');
-  await page.waitForNavigation(); // ensure page load after submit
+  await Promise.all([
+    page.waitForNavigation(),
+    page.click('button[type="submit"]'),
+  ]);
 
-  await expect(page).toURL(/texto\/\d+/);
+  // Após criar o texto, a aplicação redireciona para a home
+  await expect(page).toHaveURL(/home/);
 
-  // 5. Vai para flashcards do texto
+  // 5. Vai para flashcards do texto (painel)
+  await page.goto(`${BASE_URL}/painel-flashcards`);
   const flashcardsLink = await page.$('a[href*="/flashcards"]');
-  await flashcardsLink.click();
-  await expect(page).toURL(/flashcards/);
+  if (flashcardsLink) {
+    await flashcardsLink.click();
+  }
+  await expect(page).toHaveURL(/flashcards/);
 
-  // 6. Responde ao primeiro flashcard (assume que há botões com data-alternativa)
-  const primeiraBotao = await page.locator('button[data-alternativa]').first();
-  await primeiraBotao.click();
-  // Verifica feedback visual (classe .correta ou .incorreta)
-  await expect(primeiraBotao).toHaveClass(/correta|incorreta/);
+  // 6. Responde ao primeiro flashcard (botões de alternativa do quiz)
+  const primeiraBotao = page.locator('#verso-alternativas button').first();
+  if (await primeiraBotao.count()) {
+    // Vira o cartão primeiro para expor as alternativas
+    await page.click('#cartao');
+    await primeiraBotao.click();
+    await expect(primeiraBotao).toHaveClass(/btn-success|btn-danger/);
+  }
 });

@@ -9,8 +9,10 @@ services:
     envVars:
       - key: FLASK_ENV
         value: production
+      # SECRET_KEY deve ser definida como segredo no painel do Render (sync: false).
+      # Nunca versionar chaves de produção no repositório.
       - key: SECRET_KEY
-        value: "wissio-secret-key-2026-production-secure-hash"
+        sync: false
       - key: PYTHONUNBUFFERED
         value: "1"
       # NOTA: NÃO definir DATABASE_URL - Render injeta automaticamente com Supabase

@@ -12,7 +12,7 @@
     <div class="card shadow-sm">
         <div class="card-body">
             <form method="POST" action="{{ url_for('editar_texto', id=texto.id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 
                 <div class="mb-3">
                     <label for="titulo" class="form-label">Título</label>
